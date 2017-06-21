@@ -1025,20 +1025,6 @@ def shift(items):
 	del items[-1]
 	return items
 
-def s(string):
-	"""Perform local variable substution, e.g. 'total: {num} items'"""
-	# http://stackoverflow.com/questions/2960772/
-	#        putting-a-variable-inside-a-string-python
-	# http://stackoverflow.com/questions/6618795/
-	#        get-locals-from-calling-namespace-in-python
-	import inspect
-	frame = inspect.currentframe()
-	try:
-		rVal = string.format(**frame.f_back.f_locals)
-	finally:
-		del frame
-	return rVal
-
 def get_object_names(cls, include_subclasses=True):
 	object_names = []
 	for (this_object_name, this_object_id) in list(globals().items()):
