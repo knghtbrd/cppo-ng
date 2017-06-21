@@ -1114,17 +1114,13 @@ while True: # breaks when there are no more arguments starting with dash
 	else:
 		usage()
 
-if g.EX:
-	if g.AD:
-		usage()
-if g.AD:
-	if g.EX:
+if g.AD and g.EX:
 		usage()
 if g.CAT:
-	if not (len(args) == 2):
+	if len(args) != 2:
 		usage()
 else:
-	if not ((len(args) == 3) or (len(args) == 4)):
+	if len(args) not in (3, 4):
 		usage()
 
 g.imageFile = args[1]
@@ -1261,10 +1257,10 @@ if g.SHK:
 # end script if SHK
 
 g.imageData = loadFile(g.imageFile)
+g.image_name = os.path.splitext(os.path.basename(g.imageFile))
+g.image_ext = g.image_name[1].lower()
 
-# detect if image is 2mg and remove 64-byte header if so
-if (g.imageFile.lower().endswith(".2mg") or
-	g.imageFile.lower().endswith(".2img")):
+if g.image_ext in ('.2mg', '.2img'):
 	g.imageData = g.imageData[64:]
 
 # handle 140K disk image
@@ -1299,8 +1295,7 @@ if (len(g.imageData) == 143360):
 	# fall back on disk extension if weird boot block (e.g. AppleCommander)
 	if not prodosDisk and not g.D33:
 		#print("format and ordering unknown, checking extension")
-		if (g.imageFile.lower().endswith(".dsk") or
-			g.imageFile.lower().endswith(".do")):
+		if g.image_ext in ('.dsk', '.do'):
 			fixOrder = 1
 			#print("extension indicates DO, changing to PO")
 	if fixOrder:
@@ -1331,11 +1326,8 @@ if (not g.SHK and
 	usage()
 
 if g.D33:
-	diskName = os.path.basename(g.imageFile)
-	if (diskName[-4:].lower() == ".dsk" or
-		diskName[-3:].lower() == ".do" or
-		diskName[-3:].lower() == ".po"):
-		diskName = os.path.splitext(diskName)[0]
+	diskName = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
+			else "".join(g.image_name))
 	if g.PNAME:
 		diskName = toProdosName(diskName)
 	if not g.CAT:
