@@ -1014,17 +1014,6 @@ def to_bytes(val):
 		raise Exception(
 				"to_bytes() requires hex-ustr, int/long, or [bin-ustr]")
 
-def shift(items):
-	"""Shift list items to left, losing the first item.
-
-	in : list
-	out: list
-	"""
-	for i in range(0, (len(items)-1)):
-		items[i] = items[i+1]
-	del items[-1]
-	return items
-
 def get_object_names(cls, include_subclasses=True):
 	object_names = []
 	for (this_object_name, this_object_id) in list(globals().items()):
