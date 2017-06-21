@@ -42,6 +42,7 @@ import errno
 import uuid
 import subprocess
 import tempfile
+from binascii import a2b_hex, b2a_hex
 
 # Intentionally fails on pre-2.6 (no b'') so user can see what's wrong
 b'ERROR: cppo requires Python 2.6 or later, including 3.x.'
@@ -950,7 +951,6 @@ def slyce(val, start_pos=0, length=1, reverse=False):
 def to_hex(val):
 	"""convert bytes, decimal number, or [bin-ustr] to two-digit hex values
 	unlike hex(), accepts bytes; has no leading 0x or trailing L"""
-	from binascii import b2a_hex
 	if isinstance(val, list): # [bin-ustr]
 		val = int(val[0], 2)
 	if isinstance(val, bytes): # bytes
@@ -1002,7 +1002,6 @@ def to_bin(val):
 
 def to_bytes(val):
 	"""converts hex-ustr, int/long, or [bin-ustr] to bytes"""
-	from binascii import a2b_hex
 	if isinstance(val, list): # [bin-ustr]
 		val = to_hex(val[0])
 	if isnumber(val): # int/long
@@ -1054,7 +1053,6 @@ def get_object_names(cls, include_subclasses=True):
 def touch(filePath, modTime=None):
 	# http://stackoverflow.com/questions/1158076/implement-touch-using-python
 	# print(filePath)
-	import os
 	if (os.name == "nt"):
 		if filePath[-1] == ".":
 			filePath += "-"
@@ -1063,7 +1061,6 @@ def touch(filePath, modTime=None):
 		os.utime(filePath, (None if (modTime is None) else (modTime, modTime)))
 
 def mkdir(dirPath):
-	import os
 	if (os.name == "nt"):
 		if dirPath[-1] == ".":
 			dirPath += "-"
@@ -1074,7 +1071,6 @@ def mkdir(dirPath):
 		pass
 
 def makedirs(dirPath):
-	import os
 	if (os.name == "nt"):
 		if dirPath[-1] == ".":
 			dirPath += "-"
@@ -1086,7 +1082,6 @@ def makedirs(dirPath):
 			raise
 
 def loadFile(filePath):
-	import os
 	if (os.name == "nt"):
 		if filePath[-1] == ".":
 			filePath += "-"
@@ -1095,7 +1090,6 @@ def loadFile(filePath):
 		return imageHandle.read()
 
 def saveFile(filePath, fileData):
-	import os
 	if (os.name == "nt"):
 		if filePath[-1] == ".":
 			filePath += "-"
