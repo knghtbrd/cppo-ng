@@ -746,6 +746,13 @@ def usage(exitcode=1):
 	print(sys.modules[__name__].__doc__)
 	quitNow(exitcode)
 
+def to_sys_name(name):
+	if os.name == 'nt':
+		if name[-1] == '.':
+			name += '-'
+		name = name.replace('./', '.-/')
+	return name
+
 # --- ID bashbyter functions (adapted)
 
 def decToHex(arg1):
@@ -1006,48 +1013,28 @@ def to_bytes(val):
 def touch(filePath, modTime=None):
 	# http://stackoverflow.com/questions/1158076/implement-touch-using-python
 	# print(filePath)
-	if (os.name == "nt"):
-		if filePath[-1] == ".":
-			filePath += "-"
-		filePath = filePath.replace("./", ".-/")
-	with open(filePath, "ab"):
+	with open(to_sys_name(filePath), "ab"):
 		os.utime(filePath, (None if (modTime is None) else (modTime, modTime)))
 
 def mkdir(dirPath):
-	if (os.name == "nt"):
-		if dirPath[-1] == ".":
-			dirPath += "-"
-		dirPath = dirPath.replace("./", ".-/")
 	try:
-		os.mkdir(dirPath)
+		os.mkdir(to_sys_name(dirPath))
 	except FileExistsError:
 		pass
 
 def makedirs(dirPath):
-	if (os.name == "nt"):
-		if dirPath[-1] == ".":
-			dirPath += "-"
-		dirPath = dirPath.replace("./", ".-/")
 	try:
-		os.makedirs(dirPath)
+		os.makedirs(to_sys_name(dirPath))
 	except OSError as e:
 		if (e.errno != errno.EEXIST):
 			raise
 
 def loadFile(filePath):
-	if (os.name == "nt"):
-		if filePath[-1] == ".":
-			filePath += "-"
-		filePath = filePath.replace("./", ".-/")
-	with open(filePath, "rb") as imageHandle:
+	with open(to_sys_name(filePath), "rb") as imageHandle:
 		return imageHandle.read()
 
 def saveFile(filePath, fileData):
-	if (os.name == "nt"):
-		if filePath[-1] == ".":
-			filePath += "-"
-		filePath = filePath.replace("./", ".-/")
-	with open(filePath, "wb") as imageHandle:
+	with open(to_sys_name(filePath), "wb") as imageHandle:
 		imageHandle.write(fileData)
 
 def isnumber(number):
