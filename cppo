@@ -491,9 +491,7 @@ def processDir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 					else:
 						g.PDOSPATH_INDEX += 1
 						g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
-			else:
-				pass
-				# print(g.DIRPATH)
+			#else: print(g.DIRPATH)
 	while (pe < entryCount):
 		if (getStorageType(arg1, e) > 0):
 			#print(pe, e, entryCount)
@@ -1297,9 +1295,7 @@ if (len(g.imageData) == 143360):
 				if (readcharDec(g.imageData, ts(17,14)+2) != 13):
 					#print("order needs fixing (PO)")
 					fixOrder = 1
-				#else: # remove this
-				#	print("order OK (DO)")
-				#	pass
+				#else: print("order OK (DO)")
 	# fall back on disk extension if weird boot block (e.g. AppleCommander)
 	if not prodosDisk and not g.D33:
 		#print("format and ordering unknown, checking extension")
