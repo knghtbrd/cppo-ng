@@ -1014,17 +1014,6 @@ def to_bytes(val):
 		raise Exception(
 				"to_bytes() requires hex-ustr, int/long, or [bin-ustr]")
 
-def get_object_names(cls, include_subclasses=True):
-	object_names = []
-	for (this_object_name, this_object_id) in list(globals().items()):
-		if include_subclasses:
-			if isinstance(this_object_id, cls):
-				 object_names.append(this_object_name)
-		else:
-			if type(this_object_id) is cls:
-				 object_names.append(this_object_name)
-	return object_names
-
 def touch(filePath, modTime=None):
 	# http://stackoverflow.com/questions/1158076/implement-touch-using-python
 	# print(filePath)
