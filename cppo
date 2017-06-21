@@ -705,7 +705,7 @@ def makeADfile():
 	if not g.AD:
 		return
 	touch(g.ADdir + "/" + g.targetName)
-	g.exFileData = bytearray(b'\x00' * 741)
+	g.exFileData = bytearray(741)
 	# ADv2 header
 	writecharsHex(g.exFileData, hexToDec("00"), "0005160700020000")
 	# number of entries
@@ -935,6 +935,10 @@ def writecharsHex(arg1, arg2, arg3):
 
 #---- IvanX general purpose functions ----#
 
+def sli(start, length=1, ext=None):
+	"""return a slice object from an offset and length"""
+	return slice(start, start + length, ext)
+
 def slyce(val, start_pos=0, length=1, reverse=False):
 	"""returns slice of object (but not a slice object)
 	allows specifying length, and 3.x "bytes" consistency"""
@@ -1058,45 +1062,45 @@ args = sys.argv
 
 while True: # breaks when there are no more arguments starting with dash
 
-	if (len(args) == 1):
+	if len(args) == 1:
 		usage()
 
-	if (slyce(args[1],0,1) != "-"):
+	if args[1][0] != '-':
 		break
 
-	if (args[1] == "-s"):
+	if args[1] == '-s':
 		g.nomsg = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-n"):
+	elif args[1] == '-n':
 		g.nodir = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-uc"):
+	elif args[1] == '-uc':
 		g.UC = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-ad"):
+	elif args[1] == '-ad':
 		g.AD = 1
 		g.PNAME = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-shk"):
+	elif args[1] == '-shk':
 		g.SHK = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-pro"):
+	elif args[1] == '-pro':
 		g.PNAME = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-e"):
+	elif args[1] == '-e':
 		g.EX = 1
 		g.PNAME = 1
-		args = args[1:] #shift
+		args = args[1:]
 
-	elif (args[1] == "-cat"):
+	elif args[1] == '-cat':
 		g.CAT = 1
-		args = args[1:] #shift
+		args = args[1:]
 
 	else:
 		usage()
