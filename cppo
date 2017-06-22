@@ -1309,11 +1309,8 @@ if (len(g.imageData) == 143360):
 		print("Warning: Unable to determine disk format, assuming ProDOS.")
 
 # enforce leading slash if ProDOS
-if (not g.SHK and
-	not g.D33 and
-	g.extractFile and
-	(slyce(args[2],0,1) != "/") and
-	(slyce(args[2],0,1) != ":")):
+if (not g.SHK and not g.D33 and g.extractFile and
+		(args[2][0] not in ('/', ':'))):
 	usage()
 
 if g.D33:
