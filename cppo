@@ -144,11 +144,11 @@ def getFileName(arg1, arg2):
 		fileName = readchars(g.image_data, start+1, nameLength)
 		caseMask = getCaseMask(arg1, arg2)
 		if caseMask and not g.casefold_upper:
+			fileName = bytearray(fileName)
 			for i in range(0, len(fileName)):
 				if caseMask[i] == "1":
-					fileName = (fileName[:i] +
-							fileName[i:i+1].lower() +
-							fileName[i+1:])
+					fileName[i] = fileName[i].lower()
+			fileName = bytes(fileName)
 	return fileName
 
 def getCaseMask(arg1, arg2):
@@ -329,12 +329,12 @@ def getWorkingDirName(arg1, arg2=None):
 			caseMask = to_bin(caseMaskDec - 32768).zfill(15)
 	else: # subdirectory, get casemask from arg2 (not available in header)
 		caseMask = arg2
-	if not g.casefold_upper and caseMask != None:
+	if caseMask and not g.casefold_upper:
+		workingDirName = bytearray(workingDirName)
 		for i in range(0, len(workingDirName)):
 			if caseMask[i] == "1":
-				workingDirName = (workingDirName[:i] +
-						workingDirName[i:i+1].lower() +
-						workingDirName[i+1:])
+				workingDirName[i] = workingDirName[i].lower()
+		workingDirName = bytes(workingDirName)
 	return workingDirName
 
 def getDirEntryCount(arg1):
