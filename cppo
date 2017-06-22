@@ -1058,311 +1058,312 @@ def isnumber(number):
 
 # --- start
 
-args = sys.argv
+if __name__ == '__main__':
+	args = sys.argv
 
-while True: # breaks when there are no more arguments starting with dash
+	while True: # breaks when there are no more arguments starting with dash
 
-	if len(args) == 1:
+		if len(args) == 1:
+			usage()
+
+		if args[1][0] != '-':
+			break
+
+		if args[1] == '-s':
+			g.nomsg = 1
+			args = args[1:]
+
+		elif args[1] == '-n':
+			g.nodir = 1
+			args = args[1:]
+
+		elif args[1] == '-uc':
+			g.UC = 1
+			args = args[1:]
+
+		elif args[1] == '-ad':
+			g.AD = 1
+			g.PNAME = 1
+			args = args[1:]
+
+		elif args[1] == '-shk':
+			g.SHK = 1
+			args = args[1:]
+
+		elif args[1] == '-pro':
+			g.PNAME = 1
+			args = args[1:]
+
+		elif args[1] == '-e':
+			g.EX = 1
+			g.PNAME = 1
+			args = args[1:]
+
+		elif args[1] == '-cat':
+			g.CAT = 1
+			args = args[1:]
+
+		else:
+			usage()
+
+	if g.AD and g.EX:
 		usage()
-
-	if args[1][0] != '-':
-		break
-
-	if args[1] == '-s':
-		g.nomsg = 1
-		args = args[1:]
-
-	elif args[1] == '-n':
-		g.nodir = 1
-		args = args[1:]
-
-	elif args[1] == '-uc':
-		g.UC = 1
-		args = args[1:]
-
-	elif args[1] == '-ad':
-		g.AD = 1
-		g.PNAME = 1
-		args = args[1:]
-
-	elif args[1] == '-shk':
-		g.SHK = 1
-		args = args[1:]
-
-	elif args[1] == '-pro':
-		g.PNAME = 1
-		args = args[1:]
-
-	elif args[1] == '-e':
-		g.EX = 1
-		g.PNAME = 1
-		args = args[1:]
-
-	elif args[1] == '-cat':
-		g.CAT = 1
-		args = args[1:]
-
+	if g.CAT:
+		if len(args) != 2:
+			usage()
 	else:
-		usage()
+		if len(args) not in (3, 4):
+			usage()
 
-if g.AD and g.EX:
-		usage()
-if g.CAT:
-	if len(args) != 2:
-		usage()
-else:
-	if len(args) not in (3, 4):
-		usage()
-
-g.image_file = args[1]
-if not os.path.isfile(g.image_file):
-	print("Image/archive file \"" + g.image_file + "\" was not found.")
-	quitNow(2)
-
-g.image_name = os.path.splitext(os.path.basename(g.image_file))
-g.image_ext = g.image_name[1].lower()
-
-# automatically set ShrinkIt mode if extension suggests it
-if (g.SHK or g.image_ext in ('.shk', '.sdk', '.bxy'):
-	if (os.name == "nt"):
-		print("ShrinkIt archives cannot be extracted on Windows.")
+	g.image_file = args[1]
+	if not os.path.isfile(g.image_file):
+		print("Image/archive file \"" + g.image_file + "\" was not found.")
 		quitNow(2)
-	else:
-		try:
-			with open(os.devnull, "w") as fnull:
-				subprocess.call("nulib2", stdout = fnull, stderr = fnull)
-			g.SHK=1
-		except Exception:
-			print("Nulib2 is not available; not expanding ShrinkIt archive.")
+
+	g.image_name = os.path.splitext(os.path.basename(g.image_file))
+	g.image_ext = g.image_name[1].lower()
+
+	# automatically set ShrinkIt mode if extension suggests it
+	if (g.SHK or g.image_ext in ('.shk', '.sdk', '.bxy'):
+		if (os.name == "nt"):
+			print("ShrinkIt archives cannot be extracted on Windows.")
 			quitNow(2)
+		else:
+			try:
+				with open(os.devnull, "w") as fnull:
+					subprocess.call("nulib2", stdout = fnull, stderr = fnull)
+				g.SHK=1
+			except Exception:
+				print("Nulib2 is not available; not expanding ShrinkIt archive.")
+				quitNow(2)
 
-if (len(args) == 4):
-	g.extract_file = args[2]
+	if (len(args) == 4):
+		g.extract_file = args[2]
 
-if g.extract_file:
-	targetPath = args[3]
-	if os.path.isdir(targetPath):
-		g.targetDir = targetPath
-	elif (targetPath.rsplit("/", 1) > 1):
-		g.targetDir = targetPath.rsplit("/", 1)[0]
-		g.targetName = targetPath.rsplit("/", 1)[1]
-	if not os.path.isdir(g.targetDir):
-		print("Target directory not found.")
-		quitNow(2)
-else:
-	if not g.CAT:
-		if not os.path.isdir(args[2]):
+	if g.extract_file:
+		targetPath = args[3]
+		if os.path.isdir(targetPath):
+			g.targetDir = targetPath
+		elif (targetPath.rsplit("/", 1) > 1):
+			g.targetDir = targetPath.rsplit("/", 1)[0]
+			g.targetName = targetPath.rsplit("/", 1)[1]
+		if not os.path.isdir(g.targetDir):
 			print("Target directory not found.")
 			quitNow(2)
-
-if g.SHK:
-	g.PNAME = 0
-	if not g.CAT:
-		targetDir = (args[3] if g.extract_file else args[2])
-	unshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
-	makedirs(unshkdir)
-	result = os.system("/bin/bash -c 'cd " + unshkdir + "; " +
-			"result=$(nulib2 -xse " + os.path.abspath(g.image_file) +
-			((" " + args[2].replace('/', ':'))
-				if g.extract_file else "") + " 2> /dev/null); " +
-			"if [[ $result == \"Failed.\" ]]; then exit 3; " +
-			"else if grep -q \"no records match\" <<< \"$result\"" +
-			" > /dev/null; then exit 2; else exit 0; fi; fi'")
-	if (result == 512):
-		print("File not found in ShrinkIt archive. Try cppo -cat to get the path,")
-		print("  and omit any leading slash or colon.")
-		quitNow(1)
-	elif (result != 0):
-		print("ShrinkIt archive is invalid, or some other problem happened.")
-		quitNow(1)
-	if g.extract_file:
-		g.extract_file = g.extract_file.replace(':', '/')
-		extractPath = (unshkdir + "/" + g.extract_file)
-		extractPathDir = os.path.dirname(extractPath)
-		# move the extracted file to the root
-		newunshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
-		makedirs(newunshkdir)
-		for filename in os.listdir(extractPathDir):
-			shutil.move(extractPathDir + "/" + filename, newunshkdir)
-		shutil.rmtree(unshkdir)
-		unshkdir = newunshkdir
-
-	fileNames = [name for name in sorted(os.listdir(unshkdir))
-				 if not name.startswith(".")]
-	if g.nodir: # extract in place from "-n"
-		curDir = True
-	elif (len(fileNames) == 1 and
-			os.path.isdir(unshkdir + "/" + fileNames[0])):
-		curDir = True # only one folder at top level, so extract in place
-		volumeName = toProdosName(fileNames[0])
-	elif (len(fileNames) == 1 and # disk image, so extract in place
-			fileNames[0][-1:] == "i"):
-		curDir = True
-		volumeName = toProdosName(fileNames[0].split("#")[0])
-	else: # extract in folder based on disk image name
-		curDir = False
-		volumeName = toProdosName(os.path.basename(g.image_file))
-		if (volumeName[-4:].lower() == ".shk" or
-				volumeName[-4:].lower() == ".sdk" or
-				volumeName[-4:].lower() == ".bxy"):
-			volumeName = volumeName[0:-4]
-	if not g.CAT and not curDir and not g.extract_file:
-		print("Extracting into " + volumeName)
-	# recursively process unshrunk archive hierarchy
-	for dirName, subdirList, fileList in os.walk(unshkdir):
-		subdirList.sort()
+	else:
 		if not g.CAT:
-			g.targetDir = (targetDir + ("" if curDir else ("/" + volumeName)) +
-					("/" if (dirName.count('/') > 2) else "") +
-					("/".join(dirName.split('/')[3:]))) # chop tempdir
-			if g.extract_file: # solo item, so don't put it in the tree
-				g.targetDir = targetDir
-			if g.UC:
-				g.targetDir = g.targetDir.upper()
+			if not os.path.isdir(args[2]):
+				print("Target directory not found.")
+				quitNow(2)
+
+	if g.SHK:
+		g.PNAME = 0
+		if not g.CAT:
+			targetDir = (args[3] if g.extract_file else args[2])
+		unshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
+		makedirs(unshkdir)
+		result = os.system("/bin/bash -c 'cd " + unshkdir + "; " +
+				"result=$(nulib2 -xse " + os.path.abspath(g.image_file) +
+				((" " + args[2].replace('/', ':'))
+					if g.extract_file else "") + " 2> /dev/null); " +
+				"if [[ $result == \"Failed.\" ]]; then exit 3; " +
+				"else if grep -q \"no records match\" <<< \"$result\"" +
+				" > /dev/null; then exit 2; else exit 0; fi; fi'")
+		if (result == 512):
+			print("File not found in ShrinkIt archive. Try cppo -cat to get the path,")
+			print("  and omit any leading slash or colon.")
+			quitNow(1)
+		elif (result != 0):
+			print("ShrinkIt archive is invalid, or some other problem happened.")
+			quitNow(1)
+		if g.extract_file:
+			g.extract_file = g.extract_file.replace(':', '/')
+			extractPath = (unshkdir + "/" + g.extract_file)
+			extractPathDir = os.path.dirname(extractPath)
+			# move the extracted file to the root
+			newunshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
+			makedirs(newunshkdir)
+			for filename in os.listdir(extractPathDir):
+				shutil.move(extractPathDir + "/" + filename, newunshkdir)
+			shutil.rmtree(unshkdir)
+			unshkdir = newunshkdir
+
+		fileNames = [name for name in sorted(os.listdir(unshkdir))
+					 if not name.startswith(".")]
+		if g.nodir: # extract in place from "-n"
+			curDir = True
+		elif (len(fileNames) == 1 and
+				os.path.isdir(unshkdir + "/" + fileNames[0])):
+			curDir = True # only one folder at top level, so extract in place
+			volumeName = toProdosName(fileNames[0])
+		elif (len(fileNames) == 1 and # disk image, so extract in place
+				fileNames[0][-1:] == "i"):
+			curDir = True
+			volumeName = toProdosName(fileNames[0].split("#")[0])
+		else: # extract in folder based on disk image name
+			curDir = False
+			volumeName = toProdosName(os.path.basename(g.image_file))
+			if (volumeName[-4:].lower() == ".shk" or
+					volumeName[-4:].lower() == ".sdk" or
+					volumeName[-4:].lower() == ".bxy"):
+				volumeName = volumeName[0:-4]
+		if not g.CAT and not curDir and not g.extract_file:
+			print("Extracting into " + volumeName)
+		# recursively process unshrunk archive hierarchy
+		for dirName, subdirList, fileList in os.walk(unshkdir):
+			subdirList.sort()
+			if not g.CAT:
+				g.targetDir = (targetDir + ("" if curDir else ("/" + volumeName)) +
+						("/" if (dirName.count('/') > 2) else "") +
+						("/".join(dirName.split('/')[3:]))) # chop tempdir
+				if g.extract_file: # solo item, so don't put it in the tree
+					g.targetDir = targetDir
+				if g.UC:
+					g.targetDir = g.targetDir.upper()
+				g.ADdir = (g.targetDir + "/.AppleDouble")
+				makedirs(g.targetDir)
+				if g.AD:
+					makedirs(g.ADdir)
+			for fname in sorted(fileList):
+				if (fname[-1:] == "i"):
+					# disk image; rename to include suffix and correct type/auxtype
+					imagePath = os.path.join(dirName, fname).split("#")[0]
+					new_name = (imagePath +
+							("" if (imagePath.lower().endswith(".po") or
+								imagePath.lower().endswith(".hdv"))
+								else ".PO") + "#e00005")
+					os.rename(os.path.join(dirName, fname), new_name)
+					fname = os.path.basename(new_name)
+				g.shk_hasrf = False
+				rfork = False
+				if (fname[-1:] == "r" and
+					os.path.isfile(os.path.join(dirName, fname[:-1]))):
+					rfork = True
+				elif (os.path.isfile(os.path.join(dirName, (fname + "r")))):
+					g.shk_hasrf = True
+				if not rfork:
+					processEntry(dirName, fname)
+		shutil.rmtree(unshkdir, True)
+		quitNow(0)
+
+	# end script if SHK
+
+	g.image_data = loadFile(g.image_file)
+
+	if g.image_ext in ('.2mg', '.2img'):
+		g.image_data = g.image_data[64:]
+
+	# handle 140K disk image
+	if (len(g.image_data) == 143360):
+		#print("140K disk")
+		prodosDisk = 0
+		fixOrder = 0
+		# is it ProDOS?
+		if (to_hex(readchars(g.image_data, ts(0,0)+0, 4)) == '0138b003'):
+			#print("detected ProDOS by boot block")
+			if (readchars(g.image_data, ts(0,1)+3, 6) == b'PRODOS'):
+				prodosDisk = 1
+				#print("order OK (PO)")
+			elif (readchars(g.image_data, ts(0,14)+3, 6) == b'PRODOS'):
+				#print("order needs fixing (DO)")
+				prodosDisk = 1
+				fixOrder = 1
+		# is it DOS 3.3?
+		else:
+			#print("it's not ProDOS")
+			if (readcharDec(g.image_data, ts(17,0)+3) == 3):
+				vtocT = readcharDec(g.image_data, ts(17,0)+1)
+				vtocS = readcharDec(g.image_data, ts(17,0)+2)
+				if (vtocT<35 and vtocS<16):
+					#print("it's DOS 3.3")
+					g.D33 = 1
+					# it's DOS 3.3; check sector order next
+					if (readcharDec(g.image_data, ts(17,14)+2) != 13):
+						#print("order needs fixing (PO)")
+						fixOrder = 1
+					#else: print("order OK (DO)")
+		# fall back on disk extension if weird boot block (e.g. AppleCommander)
+		if not prodosDisk and not g.D33:
+			#print("format and ordering unknown, checking extension")
+			if g.image_ext in ('.dsk', '.do'):
+				fixOrder = 1
+				#print("extension indicates DO, changing to PO")
+		if fixOrder:
+			#print("fixing order")
+			# for each track,
+			# read each sector in the right sequence to make
+			# valid ProDOS blocks (sector pairs)
+			imageDataFixed = bytearray(143360)
+			for t in range(0, 35):
+				for s in [0, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 15]:
+					writechars(imageDataFixed,
+							ts(t,((15-s) if (s%15) else s)),
+							readchars(g.image_data, ts(t,s), 256))
+			g.image_data = bytes(imageDataFixed)
+			#print("saving fixed order file as outfile.dsk")
+			#saveFile("outfile.dsk", g.image_data)
+			#print("saved")
+
+		if not prodosDisk and not g.D33:
+			print("Warning: Unable to determine disk format, assuming ProDOS.")
+
+	# enforce leading slash if ProDOS
+	if (not g.SHK and not g.D33 and g.extract_file and
+			(args[2][0] not in ('/', ':'))):
+		usage()
+
+	if g.D33:
+		diskName = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
+				else "".join(g.image_name))
+		if g.PNAME:
+			diskName = toProdosName(diskName)
+		if not g.CAT:
+			g.targetDir = (args[3] if g.extract_file
+					else (args[2] + "/" + diskName))
 			g.ADdir = (g.targetDir + "/.AppleDouble")
 			makedirs(g.targetDir)
 			if g.AD:
 				makedirs(g.ADdir)
-		for fname in sorted(fileList):
-			if (fname[-1:] == "i"):
-				# disk image; rename to include suffix and correct type/auxtype
-				imagePath = os.path.join(dirName, fname).split("#")[0]
-				new_name = (imagePath +
-						("" if (imagePath.lower().endswith(".po") or
-							imagePath.lower().endswith(".hdv"))
-							else ".PO") + "#e00005")
-				os.rename(os.path.join(dirName, fname), new_name)
-				fname = os.path.basename(new_name)
-			g.shk_hasrf = False
-			rfork = False
-			if (fname[-1:] == "r" and
-				os.path.isfile(os.path.join(dirName, fname[:-1]))):
-				rfork = True
-			elif (os.path.isfile(os.path.join(dirName, (fname + "r")))):
-				g.shk_hasrf = True
-			if not rfork:
-				processEntry(dirName, fname)
-	shutil.rmtree(unshkdir, True)
-	quitNow(0)
-
-# end script if SHK
-
-g.image_data = loadFile(g.image_file)
-
-if g.image_ext in ('.2mg', '.2img'):
-	g.image_data = g.image_data[64:]
-
-# handle 140K disk image
-if (len(g.image_data) == 143360):
-	#print("140K disk")
-	prodosDisk = 0
-	fixOrder = 0
-	# is it ProDOS?
-	if (to_hex(readchars(g.image_data, ts(0,0)+0, 4)) == '0138b003'):
-		#print("detected ProDOS by boot block")
-		if (readchars(g.image_data, ts(0,1)+3, 6) == b'PRODOS'):
-			prodosDisk = 1
-			#print("order OK (PO)")
-		elif (readchars(g.image_data, ts(0,14)+3, 6) == b'PRODOS'):
-			#print("order needs fixing (DO)")
-			prodosDisk = 1
-			fixOrder = 1
-	# is it DOS 3.3?
-	else:
-		#print("it's not ProDOS")
-		if (readcharDec(g.image_data, ts(17,0)+3) == 3):
-			vtocT = readcharDec(g.image_data, ts(17,0)+1)
-			vtocS = readcharDec(g.image_data, ts(17,0)+2)
-			if (vtocT<35 and vtocS<16):
-				#print("it's DOS 3.3")
-				g.D33 = 1
-				# it's DOS 3.3; check sector order next
-				if (readcharDec(g.image_data, ts(17,14)+2) != 13):
-					#print("order needs fixing (PO)")
-					fixOrder = 1
-				#else: print("order OK (DO)")
-	# fall back on disk extension if weird boot block (e.g. AppleCommander)
-	if not prodosDisk and not g.D33:
-		#print("format and ordering unknown, checking extension")
-		if g.image_ext in ('.dsk', '.do'):
-			fixOrder = 1
-			#print("extension indicates DO, changing to PO")
-	if fixOrder:
-		#print("fixing order")
-		# for each track,
-		# read each sector in the right sequence to make
-		# valid ProDOS blocks (sector pairs)
-		imageDataFixed = bytearray(143360)
-		for t in range(0, 35):
-			for s in [0, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 15]:
-				writechars(imageDataFixed,
-						ts(t,((15-s) if (s%15) else s)),
-						readchars(g.image_data, ts(t,s), 256))
-		g.image_data = bytes(imageDataFixed)
-		#print("saving fixed order file as outfile.dsk")
-		#saveFile("outfile.dsk", g.image_data)
-		#print("saved")
-
-	if not prodosDisk and not g.D33:
-		print("Warning: Unable to determine disk format, assuming ProDOS.")
-
-# enforce leading slash if ProDOS
-if (not g.SHK and not g.D33 and g.extract_file and
-		(args[2][0] not in ('/', ':'))):
-	usage()
-
-if g.D33:
-	diskName = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
-			else "".join(g.image_name))
-	if g.PNAME:
-		diskName = toProdosName(diskName)
-	if not g.CAT:
-		g.targetDir = (args[3] if g.extract_file
-				else (args[2] + "/" + diskName))
-		g.ADdir = (g.targetDir + "/.AppleDouble")
-		makedirs(g.targetDir)
-		if g.AD:
-			makedirs(g.ADdir)
-		if not g.extract_file:
-			print("Extracting into " + diskName)
-	processDir([readcharDec(g.image_data, ts(17,0)+1),
-				readcharDec(g.image_data, ts(17,0)+2)])
-	if g.extract_file:
-		print("ProDOS file not found within image file.")
-	quitNow(0)
-
-# below: ProDOS
-
-g.activeDirBlock = 0
-g.activeFileName = ""
-g.activeFileSize = 0
-g.activeFileBytesCopied = 0
-g.resourceFork = 0
-g.PDOSPATH_INDEX = 0
-g.PNAME = 0
-
-if g.extract_file:
-	g.PDOSPATH = g.extract_file.replace(':', '/').split('/')
-	g.extract_file = None
-	if not g.PDOSPATH[0]:
-		g.PDOSPATH_INDEX += 1
-	g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
-	g.ADdir = (g.targetDir + "/.AppleDouble")
-	if not ((not g.AD) or os.path.isdir(g.ADdir)):
-		mkdir(g.ADdir)
-	processDir(2)
-	print("ProDOS file not found within image file.")
-	quitNow(2)
-else:
-	if not g.CAT:
-		# print(args[0], args[1], args[2])
-		g.targetDir = (args[2] + "/" + getVolumeName().decode("L1"))
-		g.ADdir = (g.targetDir + "/.AppleDouble")
-		if not os.path.isdir(g.targetDir):
-			makedirs(g.targetDir)
-		if not ((not g.AD) or os.path.isdir(g.ADdir)):
-			makedirs(g.ADdir)
-	processDir(2)
-	if not g.CAT:
+			if not g.extract_file:
+				print("Extracting into " + diskName)
+		processDir([readcharDec(g.image_data, ts(17,0)+1),
+					readcharDec(g.image_data, ts(17,0)+2)])
+		if g.extract_file:
+			print("ProDOS file not found within image file.")
 		quitNow(0)
+
+	# below: ProDOS
+
+	g.activeDirBlock = 0
+	g.activeFileName = ""
+	g.activeFileSize = 0
+	g.activeFileBytesCopied = 0
+	g.resourceFork = 0
+	g.PDOSPATH_INDEX = 0
+	g.PNAME = 0
+
+	if g.extract_file:
+		g.PDOSPATH = g.extract_file.replace(':', '/').split('/')
+		g.extract_file = None
+		if not g.PDOSPATH[0]:
+			g.PDOSPATH_INDEX += 1
+		g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
+		g.ADdir = (g.targetDir + "/.AppleDouble")
+		if not ((not g.AD) or os.path.isdir(g.ADdir)):
+			mkdir(g.ADdir)
+		processDir(2)
+		print("ProDOS file not found within image file.")
+		quitNow(2)
+	else:
+		if not g.CAT:
+			# print(args[0], args[1], args[2])
+			g.targetDir = (args[2] + "/" + getVolumeName().decode("L1"))
+			g.ADdir = (g.targetDir + "/.AppleDouble")
+			if not os.path.isdir(g.targetDir):
+				makedirs(g.targetDir)
+			if not ((not g.AD) or os.path.isdir(g.ADdir)):
+				makedirs(g.ADdir)
+		processDir(2)
+		if not g.CAT:
+			quitNow(0)
 
