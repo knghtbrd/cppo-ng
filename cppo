@@ -84,7 +84,7 @@ def pdosDateToUnixDate(arg1):
 	# output: seconds since Unix epoch (1-Jan-1970),
 	#         or current date/time if no ProDOS date
 	year = (binToDec(slyce(arg1,0,7)) + 1900)
-	if (year < 1940):
+	if year < 1940:
 		year += 100
 	month = binToDec(slyce(arg1,7,4))
 	day = binToDec(slyce(arg1,11,5))
@@ -105,7 +105,7 @@ def unixDateToADDate(arg1):
 	# output: seconds since Netatalk epoch (1-Jan-2000 00:00:00 GMT),
 	#         in hex-ustr (big endian)
 	adDate = (arg1 - 946684800)
-	if (adDate < 0 ):
+	if adDate < 0:
 		adDate += 4294967296 # to get negative hex number
 	adDateHex = to_hex(adDate).zfill(8).upper()
 	# print(arg1, adDate, adDateHex)
@@ -122,7 +122,7 @@ def getStartPos(arg1, arg2):
 	else: # ProDOS
 		return ( (arg1 * 512) +
 				 (39 * ((arg2 + (arg2 > 11)) % 13)) +
-				 (4 if (arg2 > 11) else 43) )
+				 (4 if arg2 > 11 else 43) )
 
 def getStorageType(arg1, arg2):
 	start = getStartPos(arg1, arg2)
@@ -143,9 +143,9 @@ def getFileName(arg1, arg2):
 		nameLength = (firstByte - entryType*16)
 		fileName = readchars(g.image_data, start+1, nameLength)
 		caseMask = getCaseMask(arg1, arg2)
-		if (not g.casefold_upper and caseMask != None):
+		if caseMask and not g.casefold_upper:
 			for i in range(0, len(fileName)):
-				if (caseMask[i] == "1"):
+				if caseMask[i] == "1":
 					fileName = (fileName[:i] +
 							fileName[i:i+1].lower() +
 							fileName[i+1:])
@@ -155,7 +155,7 @@ def getCaseMask(arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	caseMaskDec = (readcharDec(g.image_data, start+28) +
 			readcharDec(g.image_data, start+29)*256)
-	if (caseMaskDec < 32768):
+	if caseMaskDec < 32768:
 		return None
 	else:
 		return to_bin(caseMaskDec - 32768).zfill(15)
@@ -166,11 +166,11 @@ def getFileType(arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
 		d33fileType = readcharDec(g.image_data, start+2)
-		if ((d33fileType & 127) == 4):
+		if (d33fileType & 127) == 4:
 			return '06' # BIN
-		elif ((d33fileType & 127) == 1):
+		elif (d33fileType & 127) == 1:
 			return 'FA' # INT
-		elif ((d33fileType & 127) == 2):
+		elif (d33fileType & 127) == 2:
 			return 'FC' # BAS
 		else:
 			return '04' # TXT or other
@@ -183,7 +183,7 @@ def getAuxType(arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
 		fileType = getFileType(arg1, arg2)
-		if (fileType == '06'): # BIN (B)
+		if fileType == '06': # BIN (B)
 			# file address is in first two bytes of file data
 			fileTSlist = [readcharDec(g.image_data, start+0),
 					readcharDec(g.image_data, start+1)]
@@ -191,9 +191,9 @@ def getAuxType(arg1, arg2):
 					readcharDec(g.image_data, ts(fileTSlist)+13)]
 			return (readcharHex(g.image_data, ts(fileStart)+1) +
 					readcharHex(g.image_data, ts(fileStart)+0))
-		elif (fileType == 'FC'): # BAS (A)
+		elif fileType == 'FC': # BAS (A)
 			return '0801'
-		elif (fileType == 'FA'): # INT (I)
+		elif fileType == 'FA': # INT (I)
 			return '9600'
 		else: # TXT (T) or other
 			return '0000'
@@ -218,11 +218,11 @@ def getFileLength(arg1, arg2):
 				readcharDec(g.image_data, start+1)]
 		fileStart = [readcharDec(g.image_data, ts(fileTSlist)+12),
 				readcharDec(g.image_data, ts(fileTSlist)+13)]
-		if (fileType == '06'): # BIN (B)
+		if fileType == '06': # BIN (B)
 			# file length is in second two bytes of file data
 			return ((readcharDec(g.image_data, ts(fileStart)+2) +
 				readcharDec(g.image_data, ts(fileStart)+3)*256) + 4)
-		elif (fileType == 'FC' or fileType == 'FA'): # BAS (A) or INT (I)
+		elif fileType == 'FC' or fileType == 'FA': # BAS (A) or INT (I)
 			# file length is in first two bytes of file data
 			return ((readcharDec(g.image_data, ts(fileStart)+0) +
 				readcharDec(g.image_data, ts(fileStart)+1)*256) + 2)
@@ -249,7 +249,7 @@ def getFileLength(arg1, arg2):
 				if not lastTSpair:
 					nextTSlistSector = [readcharDec(g.image_data, pos+1),
 							readcharDec(g.image_data, pos+2)]
-					if (nextTSlistSector[0]+nextTSlistSector[1] == 0):
+					if nextTSlistSector[0]+nextTSlistSector[1] == 0:
 						lastTSpair = prevTSpair
 						endFound = True
 						break
@@ -258,7 +258,7 @@ def getFileLength(arg1, arg2):
 			# now find out where the file really ends by finding the last 00
 			for offset in range(255, -1, -1):
 				#print("pos: " + to_hex(pos))
-				if (readcharDec(g.image_data, pos+offset) != 0):
+				if readcharDec(g.image_data, pos+offset) != 0:
 					fileSize += (offset + 1)
 					break
 			return fileSize
@@ -320,18 +320,18 @@ def getWorkingDirName(arg1, arg2=None):
 	entryType = (firstByte//16)
 	nameLength = (firstByte - entryType*16)
 	workingDirName = readchars(g.image_data, start+5, nameLength)
-	if (entryType == 15): # volume directory, get casemask from header
+	if entryType == 15: # volume directory, get casemask from header
 		caseMaskDec = (readcharDec(g.image_data, start+26) +
 				readcharDec(g.image_data, start+27)*256)
-		if (caseMaskDec < 32768):
+		if caseMaskDec < 32768:
 			caseMask = None
 		else:
 			caseMask = to_bin(caseMaskDec - 32768).zfill(15)
 	else: # subdirectory, get casemask from arg2 (not available in header)
 		caseMask = arg2
-	if (not g.casefold_upper and caseMask != None):
+	if not g.casefold_upper and caseMask != None:
 		for i in range(0, len(workingDirName)):
-			if (caseMask[i] == "1"):
+			if caseMask[i] == "1":
 				workingDirName = (workingDirName[:i] +
 						workingDirName[i:i+1].lower() +
 						workingDirName[i+1:])
@@ -347,18 +347,18 @@ def getDirEntryCount(arg1):
 			top = ts(nextSector)
 			pos = top+11
 			for e in range(0, 7):
-				if (readcharDec(g.image_data, pos+0) == 0):
+				if readcharDec(g.image_data, pos+0) == 0:
 					return entryCount # no more file entries
 				else:
-					if (readcharDec(g.image_data, pos+0) != 255):
+					if readcharDec(g.image_data, pos+0) != 255:
 						entryCount += 1 # increment if not deleted file
 					pos += 35
 			nextSector = [readcharDec(g.image_data, top+1),
 					readcharDec(g.image_data, top+2)]
-			if (nextSector[0]+nextSector[1] == 0): # no more catalog sectors
+			if nextSector[0]+nextSector[1] == 0: # no more catalog sectors
 				return entryCount
 	else: # ProDOS
-		start = ( arg1 * 512 )
+		start = arg1 * 512
 		return (readcharDec(g.image_data, start+37) +
 				readcharDec(g.image_data, start+38)*256)
 
@@ -368,32 +368,31 @@ def getDirNextChunkPointer(arg1):
 		return [readcharDec(g.image_data, start+1),
 				readcharDec(g.image_data, start+2)]
 	else: # ProDOS
-		start = ( arg1 * 512 )
+		start = arg1 * 512
 		return (readcharDec(g.image_data, start+2) +
 				readcharDec(g.image_data, start+3)*256)
 
 def toProdosName(name):
 	i=0
-	if (name[0:1] == '.'): # eliminate leading period
+	if name[0] == '.': # eliminate leading period
 		name = name[1:]
 	for c in name:
-		if (c != '.' and not c.isalnum()):
+		if c != '.' and not c.isalnum():
 			name = name[:i] + '.' + name[i+1:]
 		i+=1
-	name = name[0:15]
+	name = name[:15]
 	return name
 
 def ts(track, sector=None):
 	# returns offset; track and sector can be dec, or hex-ustr
 	#   can also supply as [t,s] for convenience
-	if (sector == None):
-		sector = track[1]
-		track = track[0]
+	if sector == None:
+		(track, sector) = track
 	if isinstance(track, type("".encode("L1").decode("L1"))): # hex-ustr
 		track = int(track, 16)
 	if isinstance(sector, type("".encode("L1").decode("L1"))): # hex-ustr
 		sector = int(sector, 16)
-	return (track*16*256)+(sector*256)
+	return track*16*256 + sector*256
 
 def sli(start, length=1, ext=None):
 	"""return a slice object from an offset and length"""
@@ -414,9 +413,9 @@ def copyFile(arg1, arg2):
 			g.out_data += infile.read()
 		if g.shk_hasrf:
 			print("    [data fork]")
-			if (g.use_extended or g.use_appledouble):
+			if g.use_extended or g.use_appledouble:
 				print("    [resource fork]")
-				if (g.ex_data == None):
+				if g.ex_data == None:
 					g.ex_data = bytearray(b'')
 				with open(os.path.join(arg1, (arg2 + "r")), 'rb') as infile:
 					g.ex_data += infile.read()
@@ -424,19 +423,19 @@ def copyFile(arg1, arg2):
 		storageType = getStorageType(arg1, arg2)
 		keyPointer = getKeyPointer(arg1, arg2)
 		fileLen = getFileLength(arg1, arg2)
-		if (storageType == 1): #seedling
+		if storageType == 1: #seedling
 			copyBlock(keyPointer, fileLen)
-		elif (storageType == 2): #sapling
+		elif storageType == 2: #sapling
 			processIndexBlock(keyPointer)
-		elif (storageType == 3): #tree
+		elif storageType == 3: #tree
 			processMasterIndexBlock(keyPointer)
-		elif (storageType == 5): #extended (forked)
+		elif storageType == 5: #extended (forked)
 			processForkedFile(keyPointer)
 	if g.prodos_names:
 		# remove address/length data from DOS 3.3 file data if ProDOS target
-		if (getFileType(arg1, arg2) == '06'):
+		if getFileType(arg1, arg2) == '06':
 			g.out_data = g.out_data[4:]
-		elif ((getFileType(arg1, arg2) == 'FA') or
+		elif (getFileType(arg1, arg2) == 'FA' or
 				getFileType(arg1, arg2) == 'FC'):
 			g.out_data = g.out_data[2:]
 
@@ -445,14 +444,14 @@ def copyBlock(arg1, arg2):
 	#arg2: bytes to write (should be 256 (DOS 3.3) or 512 (ProDOS),
 	#      unless final block with less)
 	#print(arg1 + " " + arg2 + " " + g.activeFileBytesCopied)
-	if (arg1 == 0):
-		outBytes = (b'\x00' * arg2)
+	if arg1 == 0:
+		outBytes = bytes(arg2)
 	else:
 		outBytes = slyce(g.image_data, (ts(arg1) if g.dos33 else arg1*512), arg2)
-	if (g.resourceFork > 0):
+	if g.resourceFork > 0:
 		if g.use_appledouble or g.use_extended:
 			offset = (741 if g.use_appledouble else 0)
-			if (g.ex_data == None):
+			if g.ex_data == None:
 				g.ex_data = bytearray(b'')
 			g.ex_data[ (g.activeFileBytesCopied + offset) :
 					(g.activeFileBytesCopied + offset + arg2) ] = outBytes
@@ -487,22 +486,21 @@ def processDir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 			workingDirName = getWorkingDirName(arg1, arg2).decode("L1")
 			g.DIRPATH = (g.DIRPATH + "/" + workingDirName)
 			if g.PDOSPATH_INDEX:
-				if (g.PDOSPATH_INDEX == 1):
-					if (("/" + g.PDOSPATH_SEGMENT.lower()) !=
-							g.DIRPATH.lower()):
+				if g.PDOSPATH_INDEX == 1:
+					if ("/" + g.PDOSPATH_SEGMENT.lower()) != g.DIRPATH.lower():
 						print("ProDOS volume name does not match disk image.")
 						quitNow(2)
 					else:
 						g.PDOSPATH_INDEX += 1
 						g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
 			#else: print(g.DIRPATH)
-	while (pe < entryCount):
-		if (getStorageType(arg1, e) > 0):
+	while pe < entryCount:
+		if getStorageType(arg1, e) > 0:
 			#print(pe, e, entryCount)
 			processEntry(arg1, e)
 			pe += 1
 		e += 1
-		if not ((e + (0 if g.dos33 else (e>11)) ) % (7 if g.dos33 else 13)):
+		if not (e + (0 if g.dos33 else (e>11)) ) % (7 if g.dos33 else 13):
 			processDir(getDirNextChunkPointer(arg1), entryCount, e,
 					workingDirName, pe)
 			break
@@ -535,13 +533,14 @@ def processEntry(arg1, arg2):
 		g.activeFileName.upper() == g.PDOSPATH_SEGMENT.upper()):
 
 		# if ProDOS directory, not file
-		if (not g.src_shk and getStorageType(arg1, arg2) == 13):
+		if not g.src_shk and getStorageType(arg1, arg2) == 13:
 			if not g.PDOSPATH_INDEX:
-				g.target_dir = (g.target_dir + "/" + g.activeFileName)
-			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
-			if not (g.catalog_only or os.path.isdir(g.target_dir)):
+				g.target_dir = g.target_dir + "/" + g.activeFileName
+			g.appledouble_dir = g.target_dir + "/.AppleDouble"
+			if not g.catalog_only or os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
-			if not (g.catalog_only or (not g.use_appledouble) or os.path.isdir(g.appledouble_dir)):
+			if (not g.catalog_only and g.use_appledouble and
+					not os.path.isdir(g.appledouble_dir)):
 				makedirs(g.appledouble_dir)
 			if g.PDOSPATH_SEGMENT:
 				g.PDOSPATH_INDEX += 1
@@ -557,7 +556,7 @@ def processEntry(arg1, arg2):
 				dirPrint = g.DIRPATH + "/"
 			else:
 				if g.src_shk:
-					if ("/".join(dirName.split('/')[3:])):
+					if "/".join(dirName.split('/')[3:]):
 						dirPrint = ("/".join(dirName.split('/')[3:]) + "/")
 			if (not g.extract_file or
 					(os.path.basename(g.extract_file.lower()) ==
@@ -590,17 +589,17 @@ def processEntry(arg1, arg2):
 				saveFile(saveName, g.out_data)
 				creationDate = getCreationDate(arg1, arg2)
 				modifiedDate = getModifiedDate(arg1, arg2)
-				if (creationDate is None and modifiedDate is not None):
+				if modifiedDate and not creationDate:
 					creationDate = modifiedDate
-				elif (creationDate is not None and modifiedDate is None):
+				elif creationDate and not modifiedDate:
 					modifiedDate = creationDate
-				elif (creationDate is None and modifiedDate is None):
+				elif not creationDate and not modifiedDate:
 					creationDate = (datetime.datetime.today() -
 							datetime.datetime(1970,1,1)).days*24*60*60
 					modifiedDate = creationDate
 				if g.use_appledouble: # AppleDouble
 					# set dates
-					ADfilePath = (g.appledouble_dir + "/" + g.target_name)
+					ADfilePath = g.appledouble_dir + "/" + g.target_name
 					writecharsHex(g.ex_data, 637,
 							(unixDateToADDate(creationDate) +
 								unixDateToADDate(modifiedDate)))
@@ -615,7 +614,7 @@ def processEntry(arg1, arg2):
 					saveFile(ADfilePath, g.ex_data)
 				touch(saveName, modifiedDate)
 				if g.use_extended: # extended name from ProDOS image
-					if (g.ex_data != None):
+					if g.ex_data:
 						saveFile((saveName + "r"), g.ex_data)
 						touch((saveName + "r"), modifiedDate)
 				if (g.PDOSPATH_SEGMENT or
@@ -623,23 +622,22 @@ def processEntry(arg1, arg2):
 							(g.extract_file.lower() == origFileName.lower()))):
 					quitNow(0)
 				g.target_name = None
-	#else:
-		#print(g.activeFileName + " doesn't match " + g.PDOSPATH_SEGMENT)
+	#else print(g.activeFileName + " doesn't match " + g.PDOSPATH_SEGMENT)
 
 def processForkedFile(arg1):
 	# finder info except type/creator
 	fInfoA_entryType = readcharDec(g.image_data, 9)
 	fInfoB_entryType = readcharDec(g.image_data, 27)
-	if (fInfoA_entryType == 1):
+	if fInfoA_entryType == 1:
 		writechars(g.image_data, 661, readchars(g.image_data, 18, 8))
-	elif (fInfoA_entryType == 2):
+	elif fInfoA_entryType == 2:
 		writechars(g.image_data, 669, readchars(g.image_data, 10, 16))
-	if (fInfoB_entryType == 1):
+	if fInfoB_entryType == 1:
 		writechars(g.image_data, 661, readchars(g.image_data, 36, 8))
-	elif (fInfoB_entryType == 2):
+	elif fInfoB_entryType == 2:
 		writechars(g.image_data, 669, readchars(g.image_data, 28, 16))
 
-	for f in [0, 256]:
+	for f in (0, 256):
 		g.resourceFork = f
 		g.activeFileBytesCopied = 0
 		forkStart = (arg1 * 512) # start of Forked File key block
@@ -651,22 +649,22 @@ def processForkedFile(arg1):
 				readcharDec(g.image_data, forkStart+f+6)*256 +
 				readcharDec(g.image_data, forkStart+f+7)*256*256)
 		g.activeFileSize = forkFileLen
-		if (g.resourceFork > 0):
+		if g.resourceFork > 0:
 			rsrcForkLenHex = (readcharHex(g.image_data, forkStart+f+7) +
 					readcharHex(g.image_data, forkStart+f+6) +
 					readcharHex(g.image_data, forkStart+f+5))
 			# print(">>>" + rsrcForkLenHex)
-			if (g.use_appledouble or g.use_extended):
+			if g.use_appledouble or g.use_extended:
 				print("    [resource fork]")
 			if g.use_appledouble:
 				writecharsHex(g.ex_data, 35, rsrcForkLenHex)
 		else:
 			print("    [data fork]")
-		if (forkStorageType == 1): #seedling
+		if forkStorageType == 1: #seedling
 			copyBlock(forkKeyPointer, forkFileLen)
-		elif (forkStorageType == 2): #sapling
+		elif forkStorageType == 2: #sapling
 			processIndexBlock(forkKeyPointer)
-		elif (forkStorageType == 3): #tree
+		elif forkStorageType == 3: #tree
 			processMasterIndexBlock(forkKeyPointer)
 	# print()
 	g.resourceFork = 0
@@ -679,16 +677,16 @@ def processIndexBlock(arg1, arg2=False):
 	#arg2: if True, it's a Master Index Block
 	pos = 12 if g.dos33 else 0
 	bytesRemaining = g.activeFileSize
-	while (g.activeFileBytesCopied < g.activeFileSize):
+	while g.activeFileBytesCopied < g.activeFileSize:
 		if g.dos33:
 			targetTS = [readcharDec(g.image_data, ts(arg1)+pos+0),
 					readcharDec(g.image_data, ts(arg1)+pos+1)]
 			#print(to_hex(targetTS[0]),to_hex(targetTS[1]))
 			bytesRemaining = (g.activeFileSize - g.activeFileBytesCopied)
-			bs = (bytesRemaining if (bytesRemaining < 256) else 256)
+			bs = (bytesRemaining if bytesRemaining < 256 else 256)
 			copyBlock(targetTS, bs)
 			pos += 2
-			if (pos > 255):
+			if pos > 255:
 				# continue with next T/S list sector
 				processIndexBlock([readcharDec(g.image_data, ts(arg1)+1),
 					readcharDec(g.image_data, ts(arg1)+2)])
@@ -699,10 +697,10 @@ def processIndexBlock(arg1, arg2=False):
 				processIndexBlock(targetBlock)
 			else:
 				bytesRemaining = (g.activeFileSize - g.activeFileBytesCopied)
-				bs = (bytesRemaining if (bytesRemaining < 512) else 512)
+				bs = (bytesRemaining if bytesRemaining < 512 else 512)
 				copyBlock(targetBlock, bs)
 			pos += 1
-			if (pos > 255):
+			if pos > 255:
 				break # go to next entry in Master Index Block (tree)
 
 def makeADfile():
@@ -764,7 +762,7 @@ def decToHex(arg1):
 # arg: decimal value from 0-255
 # out: two-digit hex string from 00-FF
 #exit: 21=invalid arg
-	if (arg1<0 or arg1>255):
+	if arg1<0 or arg1>255:
 		sys.exit(21)
 	return to_hex(arg1).upper()
 
@@ -773,7 +771,7 @@ def hexToDec(arg1):
 # arg: two-digit hex value from 00-FF
 # out: decimal value
 #exit: 21=invalid arg
-	if (len(arg1) != 2):
+	if len(arg1) != 2:
 		return 21
 	return to_dec(arg1)
 
@@ -782,7 +780,7 @@ def hexToBin(arg1):
 # arg: two-digit hex value from 00-FF
 # out: binary string value
 #exit: 21=invalid arg
-	if (len(arg1) != 2):
+	if len(arg1) != 2:
 		return 21
 	return to_bin(arg1).zfill(8)
 
@@ -805,7 +803,7 @@ def charToDec(arg1):
 # arg: one char (of type bytes)
 # out: decimal value from 0-255
 #exit: 21=invalid arg
-	if (len(arg1) != 1):
+	if len(arg1) != 1:
 		return 21
 	return to_dec(arg1)
 
@@ -814,7 +812,7 @@ def charToHex(arg1):
 # arg: one char (of type bytes)
 # out: hexadecimal value from 00-FF
 #exit: 21=invalid arg
-	if (len(arg1) != 1):
+	if len(arg1) != 1:
 		return 21
 	return to_hex(arg1).upper()
 
@@ -823,7 +821,7 @@ def decToChar(arg1):
 # arg: decimal number from 0-255
 # out: one character
 #exit: 21=invalid arg
-	if (arg1<0 or arg1>255):
+	if arg1<0 or arg1>255:
 		sys.exit(21)
 	return to_bytes(arg1)
 
@@ -832,7 +830,7 @@ def hexToChar(arg1):
 # arg: two-digit hexadecimal number from 00-FF
 # out: one character
 #exit: 21=invalid arg
-	if (len(arg1) != 2):
+	if len(arg1) != 2:
 		return 21
 	return to_bytes(arg1)
 
@@ -845,11 +843,11 @@ def readchars(arg1, arg2=0, arg3=0):
 # exit: 21=invalid arg1, 22=invalid arg2, 23=invalid arg3
 	if not (isinstance(arg1, bytes) or isinstance(arg1, bytearray)):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
-	if (arg3<0):
+	if arg3<0:
 		sys.exit(23)
-	if (arg3 == 0):
+	if arg3 == 0:
 		arg3 = len(arg1)
 	return slyce(arg1, arg2, arg3)
 
@@ -861,7 +859,7 @@ def readcharDec(arg1, arg2=0):
 # exit: 21=invalid arg1, 22=invalid arg2
 	if not (isinstance(arg1, bytes) or isinstance(arg1, bytearray)):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	return to_dec(slyce(arg1, arg2, 1))
 
@@ -873,7 +871,7 @@ def readcharHex(arg1, arg2=0):
 # exit: 21=invalid arg1, 22=invalid arg2
 	if not (isinstance(arg1, bytes) or isinstance(arg1, bytearray)):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	return to_hex(slyce(arg1, arg2, 1))
 
@@ -886,7 +884,7 @@ def writechars(arg1, arg2, arg3):
 # exit: 21=invalid arg1, 22=invalid arg2, 23=invalid arg3
 	if not isinstance(arg1, bytearray):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	if not (isinstance(arg3, bytes) or isinstance(arg3, bytearray)):
 		sys.exit(23)
@@ -901,7 +899,7 @@ def writecharDec(arg1, arg2, arg3):
 #  out: nothing
 	if not isinstance(arg1, bytearray):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	if not isnumber(arg3):
 		sys.exit(23)
@@ -916,7 +914,7 @@ def writecharHex(arg1, arg2, arg3):
 # exit: 21=invalid arg1, 22=invalid arg2, 23=invalid arg3
 	if not isinstance(arg1, bytearray):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	if not isinstance(arg3, type("".encode("L1").decode("L1"))):
 		sys.exit(23)
@@ -931,7 +929,7 @@ def writecharsHex(arg1, arg2, arg3):
 # exit: 21=invalid arg1, 22=invalid arg2, 23=invalid arg3
 	if not isinstance(arg1, bytearray):
 		sys.exit(21)
-	if (arg2<0):
+	if arg2<0:
 		sys.exit(22)
 	if not isinstance(arg3, type("".encode("L1").decode("L1"))):
 		sys.exit(23)
@@ -942,7 +940,7 @@ def writecharsHex(arg1, arg2, arg3):
 def slyce(val, start_pos=0, length=1, reverse=False):
 	"""returns slice of object (but not a slice object)
 	allows specifying length, and 3.x "bytes" consistency"""
-	if (start_pos < 0):
+	if start_pos < 0:
 		the_slyce = val[start_pos:]
 	else:
 		the_slyce = val[start_pos:start_pos+length]
@@ -958,7 +956,7 @@ def to_hex(val):
 	elif isnumber(val):
 		# hex returns str/bytes in P2, but str/unicode in P3, so
 		# .encode().decode() always returns unicode in either
-		if (val < 0):
+		if val < 0:
 			print ("val: " + str(val))
 		return hex(val)[2:].encode("L1").decode("L1").split("L")[0]
 	else:
@@ -1030,7 +1028,7 @@ def makedirs(dirPath):
 	try:
 		os.makedirs(to_sys_name(dirPath))
 	except OSError as e:
-		if (e.errno != errno.EEXIST):
+		if e.errno != errno.EEXIST:
 			raise
 
 def loadFile(filePath):
@@ -1057,19 +1055,17 @@ def isnumber(number):
 
 
 # --- start
-
 if __name__ == '__main__':
 	args = sys.argv
 
 	while True: # breaks when there are no more arguments starting with dash
-
 		if len(args) == 1:
 			usage()
 
-		if args[1][0] != '-':
+		elif args[1][0] != '-':
 			break
 
-		if args[1] == '-s':
+		elif args[1] == '-s':
 			g.afpsync_msg = False
 			args = args[1:]
 
@@ -1124,8 +1120,8 @@ if __name__ == '__main__':
 	g.image_ext = g.image_name[1].lower()
 
 	# automatically set ShrinkIt mode if extension suggests it
-	if (g.src_shk or g.image_ext in ('.shk', '.sdk', '.bxy'):
-		if (os.name == "nt"):
+	if g.src_shk or g.image_ext in ('.shk', '.sdk', '.bxy'):
+		if os.name == "nt":
 			print("ShrinkIt archives cannot be extracted on Windows.")
 			quitNow(2)
 		else:
@@ -1137,14 +1133,14 @@ if __name__ == '__main__':
 				print("Nulib2 is not available; not expanding ShrinkIt archive.")
 				quitNow(2)
 
-	if (len(args) == 4):
+	if len(args) == 4:
 		g.extract_file = args[2]
 
 	if g.extract_file:
 		targetPath = args[3]
 		if os.path.isdir(targetPath):
 			g.target_dir = targetPath
-		elif (targetPath.rsplit("/", 1) > 1):
+		elif targetPath.rsplit("/", 1) > 1:
 			g.target_dir = targetPath.rsplit("/", 1)[0]
 			g.target_name = targetPath.rsplit("/", 1)[1]
 		if not os.path.isdir(g.target_dir):
@@ -1169,11 +1165,11 @@ if __name__ == '__main__':
 				"if [[ $result == \"Failed.\" ]]; then exit 3; " +
 				"else if grep -q \"no records match\" <<< \"$result\"" +
 				" > /dev/null; then exit 2; else exit 0; fi; fi'")
-		if (result == 512):
+		if result == 512:
 			print("File not found in ShrinkIt archive. Try cppo -cat to get the path,")
 			print("  and omit any leading slash or colon.")
 			quitNow(1)
-		elif (result != 0):
+		elif result != 0:
 			print("ShrinkIt archive is invalid, or some other problem happened.")
 			quitNow(1)
 		if g.extract_file:
@@ -1203,10 +1199,8 @@ if __name__ == '__main__':
 		else: # extract in folder based on disk image name
 			curDir = False
 			volumeName = toProdosName(os.path.basename(g.image_file))
-			if (volumeName[-4:].lower() == ".shk" or
-					volumeName[-4:].lower() == ".sdk" or
-					volumeName[-4:].lower() == ".bxy"):
-				volumeName = volumeName[0:-4]
+			if volumeName[-4:].lower() in ('.shk', '.sdk', '.bxy'):
+				volumeName = volumeName[:-4]
 		if not g.catalog_only and not curDir and not g.extract_file:
 			print("Extracting into " + volumeName)
 		# recursively process unshrunk archive hierarchy
@@ -1214,7 +1208,7 @@ if __name__ == '__main__':
 			subdirList.sort()
 			if not g.catalog_only:
 				g.target_dir = (targetDir + ("" if curDir else ("/" + volumeName)) +
-						("/" if (dirName.count('/') > 2) else "") +
+						("/" if dirName.count('/') > 2 else "") +
 						("/".join(dirName.split('/')[3:]))) # chop tempdir
 				if g.extract_file: # solo item, so don't put it in the tree
 					g.target_dir = targetDir
@@ -1225,7 +1219,7 @@ if __name__ == '__main__':
 				if g.use_appledouble:
 					makedirs(g.appledouble_dir)
 			for fname in sorted(fileList):
-				if (fname[-1:] == "i"):
+				if fname[-1:] == "i":
 					# disk image; rename to include suffix and correct type/auxtype
 					imagePath = os.path.join(dirName, fname).split("#")[0]
 					new_name = (imagePath +
@@ -1255,31 +1249,31 @@ if __name__ == '__main__':
 		g.image_data = g.image_data[64:]
 
 	# handle 140K disk image
-	if (len(g.image_data) == 143360):
+	if len(g.image_data) == 143360:
 		#print("140K disk")
 		prodos_disk = False
 		fix_order = False
 		# is it ProDOS?
-		if (to_hex(readchars(g.image_data, ts(0,0)+0, 4)) == '0138b003'):
+		if to_hex(readchars(g.image_data, ts(0,0)+0, 4)) == '0138b003':
 			#print("detected ProDOS by boot block")
-			if (readchars(g.image_data, ts(0,1)+3, 6) == b'PRODOS'):
+			if readchars(g.image_data, ts(0,1)+3, 6) == b'PRODOS':
 				prodos_disk = True
 				#print("order OK (PO)")
-			elif (readchars(g.image_data, ts(0,14)+3, 6) == b'PRODOS'):
+			elif readchars(g.image_data, ts(0,14)+3, 6) == b'PRODOS':
 				#print("order needs fixing (DO)")
 				prodos_disk = True
 				fix_order = True
 		# is it DOS 3.3?
 		else:
 			#print("it's not ProDOS")
-			if (readcharDec(g.image_data, ts(17,0)+3) == 3):
+			if readcharDec(g.image_data, ts(17,0)+3) == 3:
 				vtocT = readcharDec(g.image_data, ts(17,0)+1)
 				vtocS = readcharDec(g.image_data, ts(17,0)+2)
-				if (vtocT<35 and vtocS<16):
+				if vtocT<35 and vtocS<16:
 					#print("it's DOS 3.3")
 					g.dos33 = True
 					# it's DOS 3.3; check sector order next
-					if (readcharDec(g.image_data, ts(17,14)+2) != 13):
+					if readcharDec(g.image_data, ts(17,14)+2) != 13:
 						#print("order needs fixing (PO)")
 						fix_order = True
 					#else: print("order OK (DO)")
@@ -1314,19 +1308,19 @@ if __name__ == '__main__':
 		usage()
 
 	if g.dos33:
-		diskName = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
+		disk_name = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
 				else "".join(g.image_name))
 		if g.prodos_names:
-			diskName = toProdosName(diskName)
+			disk_name = toProdosName(disk_name)
 		if not g.catalog_only:
 			g.target_dir = (args[3] if g.extract_file
-					else (args[2] + "/" + diskName))
+					else (args[2] + "/" + disk_name))
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			makedirs(g.target_dir)
 			if g.use_appledouble:
 				makedirs(g.appledouble_dir)
 			if not g.extract_file:
-				print("Extracting into " + diskName)
+				print("Extracting into " + disk_name)
 		processDir([readcharDec(g.image_data, ts(17,0)+1),
 					readcharDec(g.image_data, ts(17,0)+2)])
 		if g.extract_file:
@@ -1350,7 +1344,7 @@ if __name__ == '__main__':
 			g.PDOSPATH_INDEX += 1
 		g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
 		g.appledouble_dir = (g.target_dir + "/.AppleDouble")
-		if not ((not g.use_appledouble) or os.path.isdir(g.appledouble_dir)):
+		if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 			mkdir(g.appledouble_dir)
 		processDir(2)
 		print("ProDOS file not found within image file.")
@@ -1362,9 +1356,8 @@ if __name__ == '__main__':
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			if not os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
-			if not ((not g.use_appledouble) or os.path.isdir(g.appledouble_dir)):
+			if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 				makedirs(g.appledouble_dir)
 		processDir(2)
 		if not g.catalog_only:
 			quitNow(0)
-
