@@ -118,12 +118,12 @@ def date_prodos_to_unix(prodos_date: bytes) -> int:
 		# <NO DATE> is always an option
 		return None
 
-def unixDateToADDate(unix_date):
+def date_unix_to_appledouble(unix_date):
 	""" convert UNIX date to Apple epoch (2000-01-01) """
 	# input: seconds since Unix epoch (1-Jan-1970 00:00:00 GMT)
 	# output: seconds since Netatalk epoch (1-Jan-2000 00:00:00 GMT),
 	#         in 4 bytes
-	adDate = (unix_date - 946684800)
+	adDate = int(unix_date - 946684800)
 	# $ date --date="2000-01-01 00:00:00 GMT" +%s
 	# 946684800
 	#
@@ -299,15 +299,12 @@ def getModifiedDate(arg1, arg2):
 	#or None if there is none
 
 	if g.src_shk:
-		modifiedDate = int(time.mktime(time.strptime(time.ctime(
-			os.path.getmtime(os.path.join(arg1, arg2))))))
-		rVal = modifiedDate
+		return int(os.path.getmtime(os.path.join(arg1, arg2)))
 	elif g.dos33:
-		rVal = None
+		return None
 	else: # ProDOS
 		start = getStartPos(arg1, arg2)
-		rVal = date_prodos_to_unix(g.image_data[start+33:start+27])
-	return rVal
+		return date_prodos_to_unix(g.image_data[start+33:start+27])
 
 def getVolumeName():
 	return getWorkingDirName(2)
@@ -580,21 +577,18 @@ def processEntry(arg1, arg2):
 				saveName = (g.target_dir + "/" +
 						(eTargetName if eTargetName else g.target_name))
 				save_file(saveName, g.out_data)
-				creationDate = getCreationDate(arg1, arg2)
-				modifiedDate = getModifiedDate(arg1, arg2)
-				if modifiedDate and not creationDate:
-					creationDate = modifiedDate
-				elif creationDate and not modifiedDate:
-					modifiedDate = creationDate
-				elif not creationDate and not modifiedDate:
-					creationDate = (datetime.datetime.today() -
-							datetime.datetime(1970,1,1)).days*24*60*60
-					modifiedDate = creationDate
+				d_created = getCreationDate(arg1, arg2)
+				d_modified = getModifiedDate(arg1, arg2)
+				if not d_modified:
+					d_modified = (d_created or
+							int(datetime.datetime.today().timestamp()))
+				if not d_created:
+					d_created = d_modified
 				if g.use_appledouble: # AppleDouble
 					# set dates
 					ADfile_path = g.appledouble_dir + "/" + g.target_name
-					g.ex_data[637:641] = unixDateToADDate(creationDate)
-					g.ex_data[641:645] = unixDateToADDate(modifiedDate)
+					g.ex_data[637:641] = date_unix_to_appledouble(d_created)
+					g.ex_data[641:645] = date_unix_to_appledouble(d_modified)
 					g.ex_data[645] = 0x80
 					g.ex_data[649] = 0x80
 					#set type/creator
@@ -604,11 +598,11 @@ def processEntry(arg1, arg2):
 							getAuxType(arg1, arg2))
 					g.ex_data[657:661] = b'pdos'
 					save_file(ADfile_path, g.ex_data)
-				touch(saveName, modifiedDate)
+				touch(saveName, d_modified)
 				if g.use_extended: # extended name from ProDOS image
 					if g.ex_data:
 						save_file((saveName + "r"), g.ex_data)
-						touch((saveName + "r"), modifiedDate)
+						touch((saveName + "r"), d_modified)
 				if (g.PDOSPATH_SEGMENT or
 						(g.extract_file and
 							(g.extract_file.lower() == origFileName.lower()))):
