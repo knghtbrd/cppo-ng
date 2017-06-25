@@ -78,25 +78,45 @@ g.dos33 = False            #      (DOS 3.3 image source, selected automatically)
 
 # functions
 
-def pdosDateToUnixDate(arg1):
-	# input: ProDOS date/time bit sequence string in format:
-	#   "yyyyyyymmmmddddd000hhhhh00mmmmmm" (ustr)
-	# output: seconds since Unix epoch (1-Jan-1970),
-	#         or current date/time if no ProDOS date
-	year = to_dec(arg1[0:7]) + (1900 if year >= 1940 else 2000)
-	month = to_dec(arg1[sli(7,4)])
-	day = to_dec(arg1[sli(11,5)])
-	hour = to_dec(arg1[sli(19,5)])
-	minute = to_dec(arg1[sli(26,6)])
-	#print(year, month, day, hour, minute)
-	td = (datetime.datetime(year, month, day, hour, minute) -
-			datetime.datetime(1970,1,1))
-	unixDate_naive = (td.days*24*60*60 + td.seconds)
-	td2 = (datetime.datetime.fromtimestamp(unixDate_naive) -
-			datetime.datetime.utcfromtimestamp(unixDate_naive))
-	utcoffset = (td2.days*24*60*60 + td2.seconds)
-	#print(unixDate_naive - utcoffset)
-	return (unixDate_naive - utcoffset) # local time zone with DST
+def date_prodos_to_unix(prodos_date: bytes) -> int:
+	"""Returns a UNIX timestamp given a raw ProDOS date"""
+	"""The ProDOS date consists of two 16-bit words stored little-endian.  We
+	receive them as raw bytes with the layout
+
+	  mmmddddd yyyyyyym 00MMMMMM 000HHHHH
+
+	where:
+	  year     yyyyyyy
+	  month    m mmm
+	  day      ddddd
+	  hour     HHHHH
+	  minute   MMMMMM
+
+	Notes:
+
+	- The high bit of the month is the low bit of prodos_date[1], the rest of
+	  lower bits are found in prodos_date[0].
+	- The two-digit year treats 40-99 as being 19xx, else 20xx.
+	- ProDOS has only minute-precision for its timestamps.  Data regarding
+	  seconds is lost.
+	- ProDOS dates are naive in the sense they lack a timezone.  We (naively)
+	  assume these timestamps are in local time.
+	- The unused bits in the time fields are masked off, just in case they're
+	  ever NOT zero.  2040 is coming.
+	"""
+	try:
+		year = (prodos_date[1] & 0xfe)>>1
+		year += 1900 if year >= 40 else 2000
+		month = ((prodos_date[1] & 0x01)<<4) | ((prodos_date[0] & 0xe0)>>5)
+		day = prodos_date[0] & 0x1f
+		hour = prodos_date[3] & 0x1f
+		minute = prodos_date[2] & 0x3f
+
+		return int(datetime.datetime(year, month, day,
+			hour, minute).timestamp())
+	except:
+		# <NO DATE> is always an option
+		return None
 
 def unixDateToADDate(unix_date):
 	""" convert UNIX date to Apple epoch (2000-01-01) """
@@ -271,15 +291,7 @@ def getCreationDate(arg1, arg2):
 		return None
 	else: # ProDOS
 		start = getStartPos(arg1, arg2)
-		pdosDate = (to_bin(g.image_data[start+25],8)+
-				to_bin(g.image_data[start+24],8)+
-				to_bin(g.image_data[start+27],8)+
-				to_bin(g.image_data[start+26],8))
-		try:
-			rVal = pdosDateToUnixDate(pdosDate)
-		except Exception:
-			rVal = None
-		return rVal
+		return date_prodos_to_unix(g.image_data[start+24:start+28])
 
 def getModifiedDate(arg1, arg2):
 	#outputs prodos modified date/time as Unix time
@@ -294,14 +306,7 @@ def getModifiedDate(arg1, arg2):
 		rVal = None
 	else: # ProDOS
 		start = getStartPos(arg1, arg2)
-		pdosDate = (to_bin(g.image_data[start+34],8)+
-				to_bin(g.image_data[start+33],8)+
-				to_bin(g.image_data[start+36],8)+
-				to_bin(g.image_data[start+35],8))
-		try:
-			rVal = pdosDateToUnixDate(pdosDate)
-		except Exception:
-			rVal = None
+		rVal = date_prodos_to_unix(g.image_data[start+33:start+27])
 	return rVal
 
 def getVolumeName():
