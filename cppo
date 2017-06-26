@@ -80,19 +80,20 @@ g.dos33 = False            #      (DOS 3.3 image source, selected automatically)
 
 def date_prodos_to_unix(prodos_date: bytes) -> int:
 	"""Returns a UNIX timestamp given a raw ProDOS date"""
-	"""The ProDOS date consists of two 16-bit words stored little-endian.  We
-	receive them as raw bytes with the layout
+	"""The ProDOS date consists of two 16-bit words stored little-
+	endian.  We receive them as raw bytes with this layout:
 
 	  mmmddddd yyyyyyym 00MMMMMM 000HHHHH
 
 	where:
+
 	  year     yyyyyyy
 	  month    m mmm
 	  day      ddddd
 	  hour     HHHHH
 	  minute   MMMMMM
 
-	Notes:
+	Some notes about that:
 
 	- The high bit of the month is the low bit of prodos_date[1], the rest of
 	  lower bits are found in prodos_date[0].
@@ -118,15 +119,17 @@ def date_prodos_to_unix(prodos_date: bytes) -> int:
 		# <NO DATE> is always an option
 		return None
 
+APPLE_EPOCH_OFFSET = 946684800
+"""The number of seconds between 1970-01-01 amd 2000-01-01"""
+# $ date --date="2000-01-01 00:00:00 GMT" +%s
+# 946684800
+
 def date_unix_to_appledouble(unix_date):
 	""" convert UNIX date to Apple epoch (2000-01-01) """
 	# input: seconds since Unix epoch (1-Jan-1970 00:00:00 GMT)
 	# output: seconds since Netatalk epoch (1-Jan-2000 00:00:00 GMT),
 	#         in 4 bytes
-	adDate = int(unix_date - 946684800)
-	# $ date --date="2000-01-01 00:00:00 GMT" +%s
-	# 946684800
-	#
+	adDate = int(unix_date - APPLE_EPOCH_OFFSET)
 	# Think: "UNIX dates have 30 years too many seconds to be Apple dates,
 	# so we need to subtract 30 years' worth of seconds."
 	if adDate < 0:
@@ -142,9 +145,10 @@ def getStartPos(arg1, arg2):
 	if g.dos33:
 		return (ts(arg1) + (35 * (arg2 % 7)) + 11)
 	else: # ProDOS
-		return ( (arg1 * 512) +
-				 (39 * ((arg2 + (arg2 > 11)) % 13)) +
-				 (4 if arg2 > 11 else 43) )
+		return (
+				(arg1 * 512)
+				+ (39 * ((arg2 + (arg2 > 11)) % 13))
+				+ (4 if arg2 > 11 else 43) )
 
 def getStorageType(arg1, arg2):
 	start = getStartPos(arg1, arg2)
@@ -208,8 +212,10 @@ def getAuxType(arg1, arg2):
 			# file address is in first two bytes of file data
 			fileTSlist = list(g.image_data[sli(start+0,2)])
 			fileStart = list(g.image_data[sli(ts(fileTSlist)+12,2)])
-			return (b2a_hex(g.image_data[sli(ts(fileStart)+1,1)]) +
-					b2a_hex(g.image_data[sli(ts(fileStart),1)])).decode()
+			return (
+					b2a_hex(g.image_data[sli(ts(fileStart)+1,1)]) +
+					b2a_hex(g.image_data[sli(ts(fileStart),1)])
+					).decode()
 		elif fileType == 'FC': # BAS (A)
 			return '0801'
 		elif fileType == 'FA': # INT (I)
@@ -217,8 +223,10 @@ def getAuxType(arg1, arg2):
 		else: # TXT (T) or other
 			return '0000'
 	else: # ProDOS
-		return (b2a_hex(g.image_data[sli(start+32,1)]) +
-				b2a_hex(g.image_data[sli(start+31,1)])).decode()
+		return (
+				b2a_hex(g.image_data[sli(start+32,1)])
+				+ b2a_hex(g.image_data[sli(start+31,1)])
+				).decode()
 
 def getKeyPointer(arg1, arg2):
 	start = getStartPos(arg1, arg2)
@@ -424,8 +432,8 @@ def copyFile(arg1, arg2):
 		# remove address/length data from DOS 3.3 file data if ProDOS target
 		if getFileType(arg1, arg2) == '06':
 			g.out_data = g.out_data[4:]
-		elif (getFileType(arg1, arg2) == 'FA' or
-				getFileType(arg1, arg2) == 'FC'):
+		elif (getFileType(arg1, arg2) == 'FA'
+				or getFileType(arg1, arg2) == 'FC'):
 			g.out_data = g.out_data[2:]
 
 def copyBlock(arg1, arg2):
@@ -442,11 +450,15 @@ def copyBlock(arg1, arg2):
 			offset = (741 if g.use_appledouble else 0)
 			if g.ex_data == None:
 				g.ex_data = bytearray(b'')
-			g.ex_data[ (g.activeFileBytesCopied + offset) :
-					(g.activeFileBytesCopied + offset + arg2) ] = outBytes
+			g.ex_data[
+					g.activeFileBytesCopied + offset
+					: g.activeFileBytesCopied + offset + arg2
+					] = outBytes
 	else:
-		g.out_data[ g.activeFileBytesCopied :
-				(g.activeFileBytesCopied + arg2) ] = outBytes
+		g.out_data[
+				g.activeFileBytesCopied
+				: g.activeFileBytesCopied + arg2
+				] = outBytes
 	g.activeFileBytesCopied += arg2
 
 def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
@@ -490,7 +502,8 @@ def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 			pe += 1
 		e += 1
 		if not (e + (0 if g.dos33 else (e>11)) ) % (7 if g.dos33 else 13):
-			process_dir(getDirNextChunkPointer(arg1), entryCount, e,
+			process_dir(
+					getDirNextChunkPointer(arg1), entryCount, e,
 					workingDirName, pe)
 			break
 
@@ -528,8 +541,8 @@ def processEntry(arg1, arg2):
 			g.appledouble_dir = g.target_dir + "/.AppleDouble"
 			if not g.catalog_only or os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
-			if (not g.catalog_only and g.use_appledouble and
-					not os.path.isdir(g.appledouble_dir)):
+			if (not g.catalog_only and g.use_appledouble
+					and not os.path.isdir(g.appledouble_dir)):
 				makedirs(g.appledouble_dir)
 			if g.PDOSPATH_SEGMENT:
 				g.PDOSPATH_INDEX += 1
@@ -547,18 +560,20 @@ def processEntry(arg1, arg2):
 				if g.src_shk:
 					if "/".join(dirName.split('/')[3:]):
 						dirPrint = ("/".join(dirName.split('/')[3:]) + "/")
-			if (not g.extract_file or
-					(os.path.basename(g.extract_file.lower()) ==
-						origFileName.split('#')[0].lower())):
+			if (not g.extract_file or (
+						os.path.basename(g.extract_file.lower())
+						== origFileName.split('#')[0].lower())):
 				filePrint = g.activeFileName.split("#")[0]
-				print(dirPrint + filePrint +
-					 ("+" if (g.shk_hasrf or
-						 (not g.src_shk and getStorageType(arg1, arg2) == 5))
-						 else "") +
-					 ((" [" + origFileName + "] ")
-						 if (g.prodos_names and
-							 (origFileName != g.activeFileName))
-						 else ""))
+				print(
+						dirPrint + filePrint
+						+ ("+" if (g.shk_hasrf
+							or (not g.src_shk
+								and getStorageType(arg1, arg2) == 5))
+							else "")
+						+ ((" [" + origFileName + "] ")
+							if (g.prodos_names
+								and origFileName != g.activeFileName)
+							else ""))
 				if g.catalog_only:
 					return
 				if not g.target_name:
@@ -567,21 +582,21 @@ def processEntry(arg1, arg2):
 					if g.src_shk:
 						eTargetName = arg2
 					else: # ProDOS image
-						eTargetName = (g.target_name + "#" +
-								getFileType(arg1, arg2).lower() +
-								getAuxType(arg1, arg2).lower())
+						eTargetName = (g.target_name + "#"
+								+ getFileType(arg1, arg2).lower()
+								+ getAuxType(arg1, arg2).lower())
 				# touch(g.target_dir + "/" + g.target_name)
 				if g.use_appledouble:
 					makeADfile()
 				copyFile(arg1, arg2)
-				saveName = (g.target_dir + "/" +
-						(eTargetName if eTargetName else g.target_name))
+				saveName = (g.target_dir + "/"
+						+ (eTargetName if eTargetName else g.target_name))
 				save_file(saveName, g.out_data)
 				d_created = getCreationDate(arg1, arg2)
 				d_modified = getModifiedDate(arg1, arg2)
 				if not d_modified:
-					d_modified = (d_created or
-							int(datetime.datetime.today().timestamp()))
+					d_modified = (d_created
+							or int(datetime.datetime.today().timestamp()))
 				if not d_created:
 					d_created = d_modified
 				if g.use_appledouble: # AppleDouble
@@ -594,8 +609,8 @@ def processEntry(arg1, arg2):
 					#set type/creator
 					g.ex_data[653] = ord('p')
 					g.ex_data[654:657] = bytes.fromhex(
-							getFileType(arg1, arg2) +
-							getAuxType(arg1, arg2))
+							getFileType(arg1, arg2)
+							+ getAuxType(arg1, arg2))
 					g.ex_data[657:661] = b'pdos'
 					save_file(ADfile_path, g.ex_data)
 				touch(saveName, d_modified)
@@ -603,9 +618,10 @@ def processEntry(arg1, arg2):
 					if g.ex_data:
 						save_file((saveName + "r"), g.ex_data)
 						touch((saveName + "r"), d_modified)
-				if (g.PDOSPATH_SEGMENT or
-						(g.extract_file and
-							(g.extract_file.lower() == origFileName.lower()))):
+				if (g.PDOSPATH_SEGMENT
+						or (g.extract_file
+							and (g.extract_file.lower()
+								== origFileName.lower()))):
 					quit_now(0)
 				g.target_name = None
 	#else print(g.activeFileName + " doesn't match " + g.PDOSPATH_SEGMENT)
@@ -718,9 +734,10 @@ def makeADfile():
 def quit_now(exitcode=0):
 	if (exitcode == 0 and g.afpsync_msg and
 			g.use_appledouble and os.path.isdir("/usr/local/etc/netatalk")):
-		print("File(s) have been copied to the target directory. " +
-			  "If the directory")
-		print("is shared by Netatalk, please type 'afpsync' now.")
+		print(
+				"File(s) have been copied to the target directory. "
+				"If the directory\n"
+				"is shared by Netatalk, please type 'afpsync' now.")
 	if g.src_shk: # clean up
 		for file in os.listdir('/tmp'):
 			if file.startswith("cppo-"):
@@ -953,7 +970,9 @@ def main(args: list):
 					subprocess.call("nulib2", stdout = fnull, stderr = fnull)
 				g.src_shk = True
 			except Exception:
-				print("Nulib2 is not available; not expanding ShrinkIt archive.")
+				print(
+						"Nulib2 is not available; not expanding "
+						"ShrinkIt archive.")
 				quit_now(2)
 
 	if len(args) == 4:
@@ -964,8 +983,7 @@ def main(args: list):
 		if os.path.isdir(targetPath):
 			g.target_dir = targetPath
 		elif targetPath.rsplit("/", 1) > 1:
-			g.target_dir = targetPath.rsplit("/", 1)[0]
-			g.target_name = targetPath.rsplit("/", 1)[1]
+			g.target_dir, g.target_name = targetPath.rsplit("/", 1)
 		if not os.path.isdir(g.target_dir):
 			print("Target directory not found.")
 			quit_now(2)
@@ -981,19 +999,24 @@ def main(args: list):
 			targetDir = (args[3] if g.extract_file else args[2])
 		unshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
 		makedirs(unshkdir)
-		result = os.system("/bin/bash -c 'cd " + unshkdir + "; " +
-				"result=$(nulib2 -xse " + os.path.abspath(g.image_file) +
-				((" " + args[2].replace('/', ':'))
-					if g.extract_file else "") + " 2> /dev/null); " +
-				"if [[ $result == \"Failed.\" ]]; then exit 3; " +
-				"else if grep -q \"no records match\" <<< \"$result\"" +
-				" > /dev/null; then exit 2; else exit 0; fi; fi'")
+		result = os.system(
+				"/bin/bash -c 'cd " + unshkdir + "; "
+				+ "result=$(nulib2 -xse " + os.path.abspath(g.image_file)
+				+ ((" " + args[2].replace('/', ':'))
+					if g.extract_file else "") + " 2> /dev/null); "
+				+ "if [[ $result == \"Failed.\" ]]; then exit 3; "
+				+ "else if grep -q \"no records match\" <<< \"$result\""
+				+ " > /dev/null; then exit 2; else exit 0; fi; fi'")
 		if result == 512:
-			print("File not found in ShrinkIt archive. Try cppo -cat to get the path,")
-			print("  and omit any leading slash or colon.")
+			print(
+					"File not found in ShrinkIt archive. "
+					"Try cppo -cat to get the path,\n"
+					"  and omit any leading slash or colon.")
 			quit_now(1)
 		elif result != 0:
-			print("ShrinkIt archive is invalid, or some other problem happened.")
+			print(
+					"ShrinkIt archive is invalid, "
+					"or some other problem happened.")
 			quit_now(1)
 		if g.extract_file:
 			g.extract_file = g.extract_file.replace(':', '/')
@@ -1030,9 +1053,11 @@ def main(args: list):
 		for dirName, subdirList, fileList in os.walk(unshkdir):
 			subdirList.sort()
 			if not g.catalog_only:
-				g.target_dir = (targetDir + ("" if curDir else ("/" +
-					volumeName)) + ("/" if dirName.count('/') > 2 else "") +
-					("/".join(dirName.split('/')[3:]))) # chop tempdir
+				g.target_dir = (
+						targetDir
+						+ ("" if curDir else ("/" + volumeName))
+						+ ("/" if dirName.count('/') > 2 else "")
+						+ ("/".join(dirName.split('/')[3:]))) # chop tempdir
 				if g.extract_file: # solo item, so don't put it in the tree
 					g.target_dir = targetDir
 				if g.casefold_upper:
@@ -1046,16 +1071,16 @@ def main(args: list):
 					# disk image; rename to include suffix and correct
 					# type/auxtype
 					imagePath = os.path.join(dirName, fname).split("#")[0]
-					new_name = (imagePath +
-							("" if os.path.splitext(imagePath.lower())[1]
-								in ('.po', '.hdv') else ".PO") +
-							"#e00005")
+					new_name = (
+							imagePath
+							+ ("" if os.path.splitext(imagePath.lower())[1]
+								in ('.po', '.hdv') else ".PO") + "#e00005")
 					os.rename(os.path.join(dirName, fname), new_name)
 					fname = os.path.basename(new_name)
 				g.shk_hasrf = False
 				rfork = False
-				if (fname[-1:] == "r" and
-					os.path.isfile(os.path.join(dirName, fname[:-1]))):
+				if (fname[-1:] == "r"
+						and os.path.isfile(os.path.join(dirName, fname[:-1]))):
 					rfork = True
 				elif (os.path.isfile(os.path.join(dirName, (fname + "r")))):
 					g.shk_hasrf = True
@@ -1091,8 +1116,8 @@ def main(args: list):
 		else:
 			log.debug("it's not ProDOS")
 			if g.image_data[ts(17,0)+3] == 3:
-				(vtocT,vtocS) = g.image_data[sli(ts(17,0) + 1,2)]
-				if vtocT<35 and vtocS<16:
+				vtocT, vtocS = g.image_data[sli(ts(17,0) + 1,2)]
+				if vtocT < 35 and vtocS < 16:
 					log.debug("it's DOS 3.3")
 					g.dos33 = True
 					# it's DOS 3.3; check sector order next
@@ -1118,8 +1143,8 @@ def main(args: list):
 			print("Warning: Unable to determine disk format, assuming ProDOS.")
 
 	# enforce leading slash if ProDOS
-	if (not g.src_shk and not g.dos33 and g.extract_file and
-			(args[2][0] not in ('/', ':'))):
+	if (not g.src_shk and not g.dos33 and g.extract_file
+			and (args[2][0] not in ('/', ':'))):
 		usage()
 
 	if g.dos33:
@@ -1165,7 +1190,7 @@ def main(args: list):
 		quit_now(2)
 	else:
 		if not g.catalog_only:
-			g.target_dir = (args[2] + "/" + getVolumeName().decode("L1"))
+			g.target_dir = (args[2] + "/" + getVolumeName().decode())
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			if not os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
