@@ -29,13 +29,13 @@ ShrinkIt support requires Nulib2. cppo requires Python 2.6+ or 3.0+."""
 
 import sys
 import os
-import time
 import datetime
 import shutil
 import errno
-import uuid
+import uuid # for temp directory
 import subprocess
-import tempfile
+#import tempfile # not used, but should be for temp directory?
+import logging
 from binascii import a2b_hex, b2a_hex
 
 class Globals:
@@ -449,7 +449,7 @@ def copyBlock(arg1, arg2):
 				(g.activeFileBytesCopied + arg2) ] = outBytes
 	g.activeFileBytesCopied += arg2
 
-def processDir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
+def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 	# arg1: ProDOS directory block, or DOS 3.3 [track,sector]
 	# for key block (with directory header):
 	#   arg2: casemask (optional), arg3:None, arg4:None, arg5:None
@@ -478,7 +478,7 @@ def processDir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 				if g.PDOSPATH_INDEX == 1:
 					if ("/" + g.PDOSPATH_SEGMENT.lower()) != g.DIRPATH.lower():
 						print("ProDOS volume name does not match disk image.")
-						quitNow(2)
+						quit_now(2)
 					else:
 						g.PDOSPATH_INDEX += 1
 						g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
@@ -490,7 +490,7 @@ def processDir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 			pe += 1
 		e += 1
 		if not (e + (0 if g.dos33 else (e>11)) ) % (7 if g.dos33 else 13):
-			processDir(getDirNextChunkPointer(arg1), entryCount, e,
+			process_dir(getDirNextChunkPointer(arg1), entryCount, e,
 					workingDirName, pe)
 			break
 
@@ -534,7 +534,7 @@ def processEntry(arg1, arg2):
 			if g.PDOSPATH_SEGMENT:
 				g.PDOSPATH_INDEX += 1
 				g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
-			processDir(getKeyPointer(arg1, arg2), getCaseMask(arg1, arg2))
+			process_dir(getKeyPointer(arg1, arg2), getCaseMask(arg1, arg2))
 			g.DIRPATH = g.DIRPATH.rsplit("/", 1)[0]
 			if not g.PDOSPATH_INDEX:
 				g.target_dir = g.target_dir.rsplit("/", 1)[0]
@@ -606,7 +606,7 @@ def processEntry(arg1, arg2):
 				if (g.PDOSPATH_SEGMENT or
 						(g.extract_file and
 							(g.extract_file.lower() == origFileName.lower()))):
-					quitNow(0)
+					quit_now(0)
 				g.target_name = None
 	#else print(g.activeFileName + " doesn't match " + g.PDOSPATH_SEGMENT)
 
@@ -715,7 +715,7 @@ def makeADfile():
 	g.ex_data[sli(0x7a,12)] = a2b_hex("0000000F000002AD00000004")
 	# dbd (second time) will create DEV, INO, SYN, SV~
 
-def quitNow(exitcode=0):
+def quit_now(exitcode=0):
 	if (exitcode == 0 and g.afpsync_msg and
 			g.use_appledouble and os.path.isdir("/usr/local/etc/netatalk")):
 		print("File(s) have been copied to the target directory. " +
@@ -729,7 +729,7 @@ def quitNow(exitcode=0):
 
 def usage(exitcode=1):
 	print(sys.modules[__name__].__doc__)
-	quitNow(exitcode)
+	quit_now(exitcode)
 
 def to_sys_name(name):
 	if os.name == 'nt':
@@ -817,12 +817,12 @@ def makedirs(dirPath):
 			raise
 
 def load_file(file_path):
-	with open(to_sys_name(file_path), "rb") as imageHandle:
-		return imageHandle.read()
+	with open(to_sys_name(file_path), "rb") as image_handle:
+		return image_handle.read()
 
 def save_file(file_path, fileData):
-	with open(to_sys_name(file_path), "wb") as imageHandle:
-		imageHandle.write(fileData)
+	with open(to_sys_name(file_path), "wb") as image_handle:
+		image_handle.write(fileData)
 
 def dopo_swap(image_data):
 	# for each track,
@@ -850,10 +850,36 @@ def isnumber(number):
 
 #---- end IvanX general purpose functions ----#
 
+### LOGGING
+# *sigh* No clean/simple way to use str.format() type log strings without
+# jumping through a few hoops
 
-# --- start
-if __name__ == '__main__':
-	args = sys.argv
+class Message(object):
+	def __init__(self, fmt, args):
+		self.fmt = fmt
+		self.args = args
+
+	def __str__(self):
+		return self.fmt.format(*self.args)
+
+class StyleAdapter(logging.LoggerAdapter):
+	def __init__(self, logger, extra=None):
+		super(StyleAdapter, self).__init__(logger, extra or {})
+
+	def log(self, level, msg, *args, **kwargs):
+		if self.isEnabledFor(level):
+			msg, kwargs = self.process(msg, kwargs)
+			self.logger._log(level, Message(msg, args), (), **kwargs)
+
+log = StyleAdapter(logging.getLogger(__name__))
+
+def main(args: list):
+	# Set up our logging facility
+	handler = logging.StreamHandler(sys.stdout)
+	formatter = logging.Formatter('%(levelname)s: %(message)s')
+	handler.setFormatter(formatter)
+	log.logger.addHandler(handler)
+	log.setLevel(logging.DEBUG)
 
 	while True: # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
@@ -910,8 +936,8 @@ if __name__ == '__main__':
 
 	g.image_file = args[1]
 	if not os.path.isfile(g.image_file):
-		print("Image/archive file \"" + g.image_file + "\" was not found.")
-		quitNow(2)
+		print('Image/archive file "{}" was not found.'.format(g.image_file))
+		quit_now(2)
 
 	g.image_name = os.path.splitext(os.path.basename(g.image_file))
 	g.image_ext = g.image_name[1].lower()
@@ -920,7 +946,7 @@ if __name__ == '__main__':
 	if g.src_shk or g.image_ext in ('.shk', '.sdk', '.bxy'):
 		if os.name == "nt":
 			print("ShrinkIt archives cannot be extracted on Windows.")
-			quitNow(2)
+			quit_now(2)
 		else:
 			try:
 				with open(os.devnull, "w") as fnull:
@@ -928,7 +954,7 @@ if __name__ == '__main__':
 				g.src_shk = True
 			except Exception:
 				print("Nulib2 is not available; not expanding ShrinkIt archive.")
-				quitNow(2)
+				quit_now(2)
 
 	if len(args) == 4:
 		g.extract_file = args[2]
@@ -942,12 +968,12 @@ if __name__ == '__main__':
 			g.target_name = targetPath.rsplit("/", 1)[1]
 		if not os.path.isdir(g.target_dir):
 			print("Target directory not found.")
-			quitNow(2)
+			quit_now(2)
 	else:
 		if not g.catalog_only:
 			if not os.path.isdir(args[2]):
 				print("Target directory not found.")
-				quitNow(2)
+				quit_now(2)
 
 	if g.src_shk:
 		g.prodos_names = False
@@ -965,10 +991,10 @@ if __name__ == '__main__':
 		if result == 512:
 			print("File not found in ShrinkIt archive. Try cppo -cat to get the path,")
 			print("  and omit any leading slash or colon.")
-			quitNow(1)
+			quit_now(1)
 		elif result != 0:
 			print("ShrinkIt archive is invalid, or some other problem happened.")
-			quitNow(1)
+			quit_now(1)
 		if g.extract_file:
 			g.extract_file = g.extract_file.replace(':', '/')
 			extractPath = (unshkdir + "/" + g.extract_file)
@@ -1036,7 +1062,7 @@ if __name__ == '__main__':
 				if not rfork:
 					processEntry(dirName, fname)
 		shutil.rmtree(unshkdir, True)
-		quitNow(0)
+		quit_now(0)
 
 	# end script if SHK
 
@@ -1046,42 +1072,43 @@ if __name__ == '__main__':
 	if g.image_ext in ('.2mg', '.2img'):
 		g.image_data = g.image_data[64:]
 
-	# handle 140K disk image
+	# handle 140k disk image
 	if len(g.image_data) == 143360:
-		#print("140K disk")
+		log.debug("140k disk")
 		prodos_disk = False
 		fix_order = False
 		# is it ProDOS?
 		if g.image_data[sli(ts(0,0), 4)] == b'\x01\x38\xb0\x03':
-			#print("detected ProDOS by boot block")
+			log.debug("detected ProDOS by boot block")
 			if g.image_data[sli(ts(0,1)+3, 6)] == b'PRODOS':
+				log.debug("order OK (PO)")
 				prodos_disk = True
-				#print("order OK (PO)")
 			elif g.image_data[sli(ts(0,14)+3, 6)] == b'PRODOS':
-				#print("order needs fixing (DO)")
+				log.debug("order needs fixing (DO)")
 				prodos_disk = True
 				fix_order = True
 		# is it DOS 3.3?
 		else:
-			#print("it's not ProDOS")
+			log.debug("it's not ProDOS")
 			if g.image_data[ts(17,0)+3] == 3:
 				(vtocT,vtocS) = g.image_data[sli(ts(17,0) + 1,2)]
 				if vtocT<35 and vtocS<16:
-					#print("it's DOS 3.3")
+					log.debug("it's DOS 3.3")
 					g.dos33 = True
 					# it's DOS 3.3; check sector order next
 					if g.image_data[ts(17,14)+2] != 13:
-						#print("order needs fixing (PO)")
+						log.debug("order needs fixing (PO)")
 						fix_order = True
-					#else: print("order OK (DO)")
+					else:
+						log.debug("order OK (DO)")
 		# fall back on disk extension if weird boot block (e.g. AppleCommander)
 		if not prodos_disk and not g.dos33:
-			#print("format and ordering unknown, checking extension")
+			log.debug("format and ordering unknown, checking extension")
 			if g.image_ext in ('.dsk', '.do'):
+				log.debug("extension indicates DO, changing to PO")
 				fix_order = True
-				#print("extension indicates DO, changing to PO")
 		if fix_order:
-			#print("fixing order")
+			log.debug("fixing order")
 			g.image_data = dopo_swap(g.image_data)
 			#print("saving fixed order file as outfile.dsk")
 			#save_file("outfile.dsk", g.image_data)
@@ -1109,10 +1136,10 @@ if __name__ == '__main__':
 				makedirs(g.appledouble_dir)
 			if not g.extract_file:
 				print("Extracting into " + disk_name)
-		processDir(list(g.image_data[sli(ts(17,0)+1,2)]))
+		process_dir(list(g.image_data[sli(ts(17,0)+1,2)]))
 		if g.extract_file:
 			print("ProDOS file not found within image file.")
-		quitNow(0)
+		quit_now(0)
 
 	# below: ProDOS
 
@@ -1133,18 +1160,19 @@ if __name__ == '__main__':
 		g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 		if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 			mkdir(g.appledouble_dir)
-		processDir(2)
+		process_dir(2)
 		print("ProDOS file not found within image file.")
-		quitNow(2)
+		quit_now(2)
 	else:
 		if not g.catalog_only:
-			#print(args[0], args[1], args[2])
 			g.target_dir = (args[2] + "/" + getVolumeName().decode("L1"))
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			if not os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
 			if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 				makedirs(g.appledouble_dir)
-		processDir(2)
-		if not g.catalog_only:
-			quitNow(0)
+		process_dir(2)
+		quit_now(0)
+
+if __name__ == '__main__':
+	main(sys.argv)
