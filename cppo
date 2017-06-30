@@ -66,15 +66,15 @@ g.image_file = None
 g.extract_file = None
 
 # runtime options
-g.use_appledouble = False  # -ad  (AppleDouble headers + resource forks)
-g.use_extended = False     # -e   (extended filenames + resource forks)
-g.catalog_only = False     # -cat (catalog only, no extract)
-g.casefold_upper = False   # -uc  (GS/OS mixed case filenames extract as uppercase)
-g.src_shk = False          # -shk (ShrinkIt archive source)
-g.prodos_names = False     # -pro (adapt DOS 3.3 names to ProDOS)
-g.afpsync_msg = True       # -s   (sets False to suppress afpsync message at end)
-g.extract_in_place = False # -n   (don't create parent dir for SHK, extract files in place)
-g.dos33 = False            #      (DOS 3.3 image source, selected automatically)
+g.use_appledouble = False   # -ad  (AppleDouble headers + resource forks)
+g.use_extended = False      # -e   (extended filenames + resource forks)
+g.catalog_only = False      # -cat (catalog only, no extract)
+g.casefold_upper = False    # -uc  (GS/OS mixed case filenames extract as uppercase)
+g.src_shk = False           # -shk (ShrinkIt archive source)
+g.prodos_names = False      # -pro (adapt DOS 3.3 names to ProDOS)
+g.afpsync_msg = True        # -s   (sets False to suppress afpsync message at end)
+g.extract_in_place = False  # -n   (don't create parent dir for SHK, extract files in place)
+g.dos33 = False             #      (DOS 3.3 image source, selected automatically)
 
 # functions
 
