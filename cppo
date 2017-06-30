@@ -36,6 +36,7 @@ import uuid # for temp directory
 import subprocess
 #import tempfile # not used, but should be for temp directory?
 import logging
+import struct
 from binascii import a2b_hex, b2a_hex
 
 class Globals:
@@ -77,6 +78,22 @@ g.extract_in_place = False  # -n   (don't create parent dir for SHK, extract fil
 g.dos33 = False             #      (DOS 3.3 image source, selected automatically)
 
 # functions
+
+def pack_u24be(buf: bytes, offset: int, val: int):
+	lo16 = val & 0xffff
+	hi8 = (val >> 16) & 0xff
+	struct.pack_into('>BH', buf, offset, hi8, lo16)
+
+def pack_u32be(buf: bytes, offset: int, val: int):
+	# Currently unused, will be needed for resource fork dates later
+	struct.pack_into('>L', buf, offset, val)
+
+def unpack_u16le(buf: bytes, offset: int = 0) -> int:
+	return struct.unpack_from('<H', buf, offset)[0]
+
+def unpack_u24le(buf: bytes, offset: int = 0) -> int:
+	lo16, hi8 = struct.unpack_from('<HB', buf, offset)
+	return lo16 | (hi8 << 16)
 
 def date_prodos_to_unix(prodos_date: bytes) -> int:
 	"""Returns a UNIX timestamp given a raw ProDOS date"""
@@ -179,7 +196,7 @@ def getFileName(arg1, arg2):
 
 def getCaseMask(arg1, arg2):
 	start = getStartPos(arg1, arg2)
-	caseMaskDec = int.from_bytes(g.image_data[sli(start+28,2)], 'little')
+	caseMaskDec = unpack_u16le(g.image_data, start + 28)
 	if caseMaskDec < 32768:
 		return None
 	else:
@@ -223,17 +240,14 @@ def getAuxType(arg1, arg2):
 		else: # TXT (T) or other
 			return '0000'
 	else: # ProDOS
-		return (
-				b2a_hex(g.image_data[sli(start+32,1)])
-				+ b2a_hex(g.image_data[sli(start+31,1)])
-				).decode()
+		return format(unpack_u16le(g.image_data, start + 31), '04x')
 
 def getKeyPointer(arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
 		return list(g.image_data[sli(start,2)])
 	else: # ProDOS
-		return int.from_bytes(g.image_data[sli(start+17,2)], 'little')
+		return unpack_u16le(g.image_data, start + 17)
 
 def getFileLength(arg1, arg2):
 	start = getStartPos(arg1, arg2)
@@ -243,19 +257,15 @@ def getFileLength(arg1, arg2):
 		fileStart = list(g.image_data[sli(ts(fileTSlist)+12,2)])
 		if fileType == '06': # BIN (B)
 			# file length is in second two bytes of file data
-			return (int.from_bytes(g.image_data[
-				sli(ts(fileStart)+2, 2)
-				], 'little') + 4)
+			file_size = unpack_u16le(g.image_data, ts(fileStart) + 2) + 4
 		elif fileType == 'FC' or fileType == 'FA': # BAS (A) or INT (I)
 			# file length is in first two bytes of file data
-			return (int.from_bytes(g.image_data[
-				sli(ts(fileStart), 2)
-				], 'little') + 2)
+			file_size = unpack_u16le(g.image_data, ts(fileStart)) + 2
 		else: # TXT (T) or other
 			# sadly, we have to walk the whole file
 			# length is determined by sectors in TSlist, minus wherever
 			# anything after the first zero in the last sector
-			fileSize = 0
+			file_size = 0
 			lastTSpair = None
 			prevTSpair = [0,0]
 			nextTSlistSector = fileTSlist
@@ -265,7 +275,7 @@ def getFileLength(arg1, arg2):
 				for tsPos in range(12, 256, 2):
 					cur_ts_pair = list(g.image_data[sli(pos+tsPos,2)])
 					if ts(cur_ts_pair) != 0:
-						fileSize += 256
+						file_size += 256
 						prevTSpair = cur_ts_pair
 					else:
 						lastTSpair = prevTSpair
@@ -277,17 +287,18 @@ def getFileLength(arg1, arg2):
 						lastTSpair = prevTSpair
 						endFound = True
 						break
-			fileSize -= 256
+			file_size -= 256
 			pos = ts(prevTSpair)
 			# now find out where the file really ends by finding the last 00
 			for offset in range(255, -1, -1):
 				#print("pos: " + to_hex(pos))
 				if g.image_data[pos+offset] != 0:
-					fileSize += (offset + 1)
+					file_size += (offset + 1)
 					break
-			return fileSize
 	else: # ProDOS
-		return int.from_bytes(g.image_data[sli(start+21,3)], 'little')
+		file_size = unpack_u24le(g.image_data, start + 21)
+
+	return file_size
 
 def getCreationDate(arg1, arg2):
 	#outputs prodos creation date/time as Unix time
@@ -325,7 +336,7 @@ def getWorkingDirName(arg1, arg2=None):
 	nameLength = firstByte - entryType*16
 	workingDirName = g.image_data[sli(start+5, nameLength)]
 	if entryType == 15: # volume directory, get casemask from header
-		caseMaskDec = int.from_bytes(g.image_data[sli(start+26,2)], 'little')
+		caseMaskDec = unpack_u16le(g.image_data, start + 26)
 		if caseMaskDec < 32768:
 			caseMask = None
 		else:
@@ -359,7 +370,7 @@ def getDirEntryCount(arg1):
 				return entryCount
 	else: # ProDOS
 		start = arg1 * 512
-		return int.from_bytes(g.image_data[sli(start+37,2)], 'little')
+		return unpack_u16le(g.image_data, start + 37)
 
 def getDirNextChunkPointer(arg1):
 	if g.dos33:
@@ -367,7 +378,7 @@ def getDirNextChunkPointer(arg1):
 		return list(g.image_data[sli(start+1,2)])
 	else: # ProDOS
 		start = arg1 * 512
-		return int.from_bytes(g.image_data[sli(start+2,2)], 'little')
+		return unpack_u16le(g.image_data, start + 2)
 
 def toProdosName(name):
 	i=0
@@ -645,19 +656,16 @@ def processForkedFile(arg1):
 		forkStart = arg1 * 512 # start of Forked File key block
 		#print("--" + forkStart)
 		forkStorageType = g.image_data[forkStart+f]
-		forkKeyPointer = int.from_bytes(g.image_data[
-			sli(forkStart+f+1,2) ], 'little')
-		forkFileLen = int.from_bytes(g.image_data[
-			sli(forkStart+f+5,3) ], 'little')
+		forkKeyPointer = unpack_u16le(g.image_data, forkStart + f + 1)
+		forkFileLen = unpack_u24le(g.image_data, forkStart + f + 5)
 		g.activeFileSize = forkFileLen
 		if g.resourceFork > 0:
-			rsrcForkLen = int.from_bytes(g.image_data[
-				sli(forkStart + f + 5, 3)],'little')
+			rsrcForkLen = unpack_u24le(g.image_data, forkStart + f + 5)
 			#print(">>>", rsrcForkLen)
 			if g.use_appledouble or g.use_extended:
 				print("    [resource fork]")
 			if g.use_appledouble:
-				g.ex_data[35:38] = rsrcForkLen.to_bytes(3, 'big')
+				pack_u24be(g.ex_data, 35, rsrcForkLen)
 		else:
 			print("    [data fork]")
 		if forkStorageType == 1: #seedling
