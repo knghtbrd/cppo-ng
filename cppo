@@ -381,13 +381,13 @@ def getDirNextChunkPointer(arg1):
 		return unpack_u16le(g.image_data, start + 2)
 
 def toProdosName(name):
-	i=0
+	i = 0
 	if name[0] == '.': # eliminate leading period
 		name = name[1:]
 	for c in name:
 		if c != '.' and not c.isalnum():
 			name = name[:i] + '.' + name[i+1:]
-		i+=1
+		i += 1
 	name = name[:15]
 	return name
 
