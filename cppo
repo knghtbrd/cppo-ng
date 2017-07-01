@@ -37,7 +37,42 @@ import subprocess
 #import tempfile # not used, but should be for temp directory?
 import logging
 import struct
+from collections import namedtuple
 from binascii import a2b_hex, b2a_hex
+
+A2MG1_UNPACK = (
+		'<'              # use little-endian numbers
+		'4s'             # magic string '2IMG'
+		'4s'             # creator string
+		'H'              # header length
+		'H'              # 2mg version
+		'L'              # image format
+		'L'              # flags (we unpack it into "vol")
+		'L'              # number of 512 blocks
+		'L'              # image data offset
+		'L'              # image data length
+		'L'              # comment offset
+		'L'              # comment length
+		'L'              # creator private use offset
+		'L'              # creator private use length
+		'16x'            # reserved for future use
+		)
+A2MG1_ATTRS = (
+		'magic', 'creator', 'hdr_len', 'version',
+		'img_fmt', 'vol', 'num_blocks',
+		'data_offset', 'data_len',
+		'cmnt_offset', 'cmnt_len',
+		'creator_offset', 'creator_len'
+		)
+A2MG1_VOL_ATTRS = ('locked', 'dosvol')
+
+# We assume 2mg files with unknown version have these fields
+A2MG_UNK_ATTRS = ('magic', 'creator', 'hdr_len', 'version')
+
+A2mg1 = namedtuple('A2mg1', A2MG1_ATTRS)
+A2mg1Vol = namedtuple('A2mg1Vol', A2MG1_VOL_ATTRS)
+A2mgUnk = namedtuple('A2mgUnk', A2MG_UNK_ATTRS)
+
 
 class Globals:
 	pass
@@ -63,7 +98,6 @@ g.DIRPATH = ""
 g.target_name = None
 g.target_dir = ""
 g.appledouble_dir = None
-g.image_file = None
 g.extract_file = None
 
 # runtime options
@@ -79,12 +113,12 @@ g.dos33 = False             #      (DOS 3.3 image source, selected automatically
 
 # functions
 
-def pack_u24be(buf: bytes, offset: int, val: int):
+def pack_u24be(buf: bytearray, offset: int, val: int):
 	lo16 = val & 0xffff
 	hi8 = (val >> 16) & 0xff
 	struct.pack_into('>BH', buf, offset, hi8, lo16)
 
-def pack_u32be(buf: bytes, offset: int, val: int):
+def pack_u32be(buf: bytearray, offset: int, val: int):
 	# Currently unused, will be needed for resource fork dates later
 	struct.pack_into('>L', buf, offset, val)
 
@@ -94,6 +128,35 @@ def unpack_u16le(buf: bytes, offset: int = 0) -> int:
 def unpack_u24le(buf: bytes, offset: int = 0) -> int:
 	lo16, hi8 = struct.unpack_from('<HB', buf, offset)
 	return lo16 | (hi8 << 16)
+
+# FIXME: I know -> namedtuple below is _wrong_.  It's a hint, and I am doing
+# things wrong here.  I'm not 100% sure how to do this right.  If you are,
+# please submit a more pythonic fix.
+def unpack_2mg(buf: bytes, offset: int = 0) -> namedtuple:
+	try:
+		# 2017-07-01: Version 1 data is the only kind so far...
+		a2mg = A2mg1(*struct.unpack_from(A2MG1_UNPACK, buf, offset))
+		if a2mg.magic == b'2IMG':
+			if a2mg.version == 1:
+				vol = A2mg1Vol(
+					locked=bool(a2mg.vol & (1<<31)),
+					dosvol=a2mg.vol & 0xff if a2mg.vol & 0x100 else None
+					)
+				a2mg = a2mg._replace(vol=vol)
+			else:
+				log.warn(
+						"Unrecognized 2mg version {}: '{}'".format(
+							a2mg.version, name
+							)
+						)
+				a2mg = A2mgUnk(*a2mg[0:len(A2MG_UNK_ATTRS)])
+		else:
+			a2mg = None
+	except ValueError:
+		a2mg = None
+	print(a2mg)
+	return a2mg
+
 
 def date_prodos_to_unix(prodos_date: bytes) -> int:
 	"""Returns a UNIX timestamp given a raw ProDOS date"""
@@ -875,6 +938,22 @@ def isnumber(number):
 
 #---- end IvanX general purpose functions ----#
 
+### NEW DISK CLASSES
+
+class Disk:
+	def __init__(self, name=None):
+		if name is not None:
+			self.pathname = name
+			self.path, self.filename = os.path.split(name)
+			self.diskname, self.ext = os.path.splitext(self.filename)
+			self.ext = os.path.splitext(name)[1].lower()
+			# FIXME: Handle compressed images?
+			with open(to_sys_name(name), "rb") as f:
+				self.image = f.read()
+
+			self.a2mg = unpack_2mg(self.image)
+
+
 ### LOGGING
 # *sigh* No clean/simple way to use str.format() type log strings without
 # jumping through a few hoops
@@ -894,9 +973,10 @@ class StyleAdapter(logging.LoggerAdapter):
 	def log(self, level, msg, *args, **kwargs):
 		if self.isEnabledFor(level):
 			msg, kwargs = self.process(msg, kwargs)
-			self.logger._log(level, Message(msg, args), (), **kwargs)
+			self.logger._log(level, Message(str(msg), args), (), **kwargs)
 
 log = StyleAdapter(logging.getLogger(__name__))
+
 
 def main(args: list):
 	# Set up our logging facility
@@ -959,16 +1039,14 @@ def main(args: list):
 		if len(args) not in (3, 4):
 			usage()
 
-	g.image_file = args[1]
-	if not os.path.isfile(g.image_file):
-		print('Image/archive file "{}" was not found.'.format(g.image_file))
+	try:
+		disk = Disk(args[1])
+	except IOError as e:
+		log.critical(e)
 		quit_now(2)
 
-	g.image_name = os.path.splitext(os.path.basename(g.image_file))
-	g.image_ext = g.image_name[1].lower()
-
 	# automatically set ShrinkIt mode if extension suggests it
-	if g.src_shk or g.image_ext in ('.shk', '.sdk', '.bxy'):
+	if g.src_shk or disk.ext in ('.shk', '.sdk', '.bxy'):
 		if os.name == "nt":
 			print("ShrinkIt archives cannot be extracted on Windows.")
 			quit_now(2)
@@ -984,6 +1062,7 @@ def main(args: list):
 				quit_now(2)
 
 	if len(args) == 4:
+		print(args)
 		g.extract_file = args[2]
 
 	if g.extract_file:
@@ -1009,7 +1088,7 @@ def main(args: list):
 		makedirs(unshkdir)
 		result = os.system(
 				"/bin/bash -c 'cd " + unshkdir + "; "
-				+ "result=$(nulib2 -xse " + os.path.abspath(g.image_file)
+				+ "result=$(nulib2 -xse " + os.path.abspath(disk.pathname)
 				+ ((" " + args[2].replace('/', ':'))
 					if g.extract_file else "") + " 2> /dev/null); "
 				+ "if [[ $result == \"Failed.\" ]]; then exit 3; "
@@ -1052,7 +1131,7 @@ def main(args: list):
 			volumeName = toProdosName(fileNames[0].split("#")[0])
 		else: # extract in folder based on disk image name
 			curDir = False
-			volumeName = toProdosName(os.path.basename(g.image_file))
+			volumeName = toProdosName(os.path.basename(disk.pathname))
 			if volumeName[-4:].lower() in ('.shk', '.sdk', '.bxy'):
 				volumeName = volumeName[:-4]
 		if not g.catalog_only and not curDir and not g.extract_file:
@@ -1099,10 +1178,10 @@ def main(args: list):
 
 	# end script if SHK
 
-	g.image_data = load_file(g.image_file)
+	g.image_data = load_file(disk.pathname)
 
 	# detect if image is 2mg and remove 64-byte header if so
-	if g.image_ext in ('.2mg', '.2img'):
+	if disk.ext in ('.2mg', '.2img'):
 		g.image_data = g.image_data[64:]
 
 	# handle 140k disk image
@@ -1137,7 +1216,7 @@ def main(args: list):
 		# fall back on disk extension if weird boot block (e.g. AppleCommander)
 		if not prodos_disk and not g.dos33:
 			log.debug("format and ordering unknown, checking extension")
-			if g.image_ext in ('.dsk', '.do'):
+			if disk.ext in ('.dsk', '.do'):
 				log.debug("extension indicates DO, changing to PO")
 				fix_order = True
 		if fix_order:
@@ -1156,12 +1235,14 @@ def main(args: list):
 		usage()
 
 	if g.dos33:
-		disk_name = (g.image_name[0] if g.image_ext in ('.dsk', '.do', '.po')
-				else "".join(g.image_name))
+		disk_name = (disk.diskname
+				if disk.ext in ('.dsk', '.do', '.po')
+				else disk.filename)
 		if g.prodos_names:
 			disk_name = toProdosName(disk_name)
 		if not g.catalog_only:
-			g.target_dir = (args[3] if g.extract_file
+			g.target_dir = (args[3]
+					if g.extract_file
 					else (args[2] + "/" + disk_name))
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			makedirs(g.target_dir)
