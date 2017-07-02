@@ -40,40 +40,6 @@ import struct
 from collections import namedtuple
 from binascii import a2b_hex, b2a_hex
 
-A2MG1_UNPACK = (
-		'<'              # use little-endian numbers
-		'4s'             # magic string '2IMG'
-		'4s'             # creator string
-		'H'              # header length
-		'H'              # 2mg version
-		'L'              # image format
-		'L'              # flags (we unpack it into "vol")
-		'L'              # number of 512 blocks
-		'L'              # image data offset
-		'L'              # image data length
-		'L'              # comment offset
-		'L'              # comment length
-		'L'              # creator private use offset
-		'L'              # creator private use length
-		'16x'            # reserved for future use
-		)
-A2MG1_ATTRS = (
-		'magic', 'creator', 'hdr_len', 'version',
-		'img_fmt', 'vol', 'num_blocks',
-		'data_offset', 'data_len',
-		'cmnt_offset', 'cmnt_len',
-		'creator_offset', 'creator_len'
-		)
-A2MG1_VOL_ATTRS = ('locked', 'dosvol')
-
-# We assume 2mg files with unknown version have these fields
-A2MG_UNK_ATTRS = ('magic', 'creator', 'hdr_len', 'version')
-
-A2mg1 = namedtuple('A2mg1', A2MG1_ATTRS)
-A2mg1Vol = namedtuple('A2mg1Vol', A2MG1_VOL_ATTRS)
-A2mgUnk = namedtuple('A2mgUnk', A2MG_UNK_ATTRS)
-
-
 class Globals:
 	pass
 
@@ -939,6 +905,39 @@ def isnumber(number):
 #---- end IvanX general purpose functions ----#
 
 ### NEW DISK CLASSES
+
+A2MG1_UNPACK = (
+		'<'              # use little-endian numbers
+		'4s'             # magic string '2IMG'
+		'4s'             # creator string
+		'H'              # header length
+		'H'              # 2mg version
+		'L'              # image format
+		'L'              # flags (we unpack it into "vol")
+		'L'              # number of 512 blocks
+		'L'              # image data offset
+		'L'              # image data length
+		'L'              # comment offset
+		'L'              # comment length
+		'L'              # creator private use offset
+		'L'              # creator private use length
+		'16x'            # reserved for future use
+		)
+A2MG1_ATTRS = (
+		'magic', 'creator', 'hdr_len', 'version',
+		'img_fmt', 'vol', 'num_blocks',
+		'data_offset', 'data_len',
+		'cmnt_offset', 'cmnt_len',
+		'creator_offset', 'creator_len'
+		)
+A2MG1_VOL_ATTRS = ('locked', 'dosvol')
+
+# We assume 2mg files with unknown version have these fields
+A2MG_UNK_ATTRS = ('magic', 'creator', 'hdr_len', 'version')
+
+A2mg1 = namedtuple('A2mg1', A2MG1_ATTRS)
+A2mg1Vol = namedtuple('A2mg1Vol', A2MG1_VOL_ATTRS)
+A2mgUnk = namedtuple('A2mgUnk', A2MG_UNK_ATTRS)
 
 class Disk:
 	def __init__(self, name=None):
