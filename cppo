@@ -96,34 +96,6 @@ def unpack_u24le(buf: bytes, offset: int = 0) -> int:
 	lo16, hi8 = struct.unpack_from('<HB', buf, offset)
 	return lo16 | (hi8 << 16)
 
-# FIXME: I know -> namedtuple below is _wrong_.  It's a hint, and I am doing
-# things wrong here.  I'm not 100% sure how to do this right.  If you are,
-# please submit a more pythonic fix.
-def unpack_2mg(buf: bytes, offset: int = 0) -> namedtuple:
-	try:
-		# 2017-07-01: Version 1 data is the only kind so far...
-		a2mg = A2mg1(*struct.unpack_from(A2MG1_UNPACK, buf, offset))
-		if a2mg.magic == b'2IMG':
-			if a2mg.version == 1:
-				vol = A2mg1Vol(
-					locked=bool(a2mg.vol & (1<<31)),
-					dosvol=a2mg.vol & 0xff if a2mg.vol & 0x100 else None
-					)
-				a2mg = a2mg._replace(vol=vol)
-			else:
-				log.warn(
-						"Unrecognized 2mg version {}: '{}'".format(
-							a2mg.version, name
-							)
-						)
-				a2mg = A2mgUnk(*a2mg[0:len(A2MG_UNK_ATTRS)])
-		else:
-			a2mg = None
-	except ValueError:
-		a2mg = None
-	print(a2mg)
-	return a2mg
-
 
 def date_prodos_to_unix(prodos_date: bytes) -> int:
 	"""Returns a UNIX timestamp given a raw ProDOS date"""
@@ -907,7 +879,7 @@ def isnumber(number):
 
 ### NEW DISK CLASSES
 
-A2MG1_UNPACK = (
+TWOIMG_V1_UNPACK = (
 		'<'              # use little-endian numbers
 		'4s'             # magic string '2IMG'
 		'4s'             # creator string
@@ -924,21 +896,15 @@ A2MG1_UNPACK = (
 		'L'              # creator private use length
 		'16x'            # reserved for future use
 		)
-A2MG1_ATTRS = (
+TWOIMG_V1_ATTRS = (
 		'magic', 'creator', 'hdr_len', 'version',
-		'img_fmt', 'vol', 'num_blocks',
+		'img_fmt', 'flags', 'num_blocks',
 		'data_offset', 'data_len',
-		'cmnt_offset', 'cmnt_len',
+		'comment_offset', 'comment_len',
 		'creator_offset', 'creator_len'
 		)
-A2MG1_VOL_ATTRS = ('locked', 'dosvol')
 
-# We assume 2mg files with unknown version have these fields
-A2MG_UNK_ATTRS = ('magic', 'creator', 'hdr_len', 'version')
-
-A2mg1 = namedtuple('A2mg1', A2MG1_ATTRS)
-A2mg1Vol = namedtuple('A2mg1Vol', A2MG1_VOL_ATTRS)
-A2mgUnk = namedtuple('A2mgUnk', A2MG_UNK_ATTRS)
+TwoImgV1 = namedtuple('TwoImgV1', TWOIMG_V1_ATTRS)
 
 class Disk:
 	def __init__(self, name=None):
@@ -951,7 +917,38 @@ class Disk:
 			with open(to_sys_name(name), "rb") as f:
 				self.image = f.read()
 
-			self.a2mg = unpack_2mg(self.image)
+			if self.ext in ('.2mg', '.2img'):
+				self._parse_2mg()
+
+	def _parse_2mg(self):
+		self.twoimg = None
+		self.twoimg_comment = None
+		self.twoimg_creator = None
+		self.twoimg_locked = None
+		hdr = TwoImgV1(*struct.unpack_from(TWOIMG_V1_UNPACK, self.image))
+		if hdr.magic == b'2IMG':
+			self._raw_twoimg = self.image[:hdr.hdr_len]
+			if hdr.version == 1:
+				if hdr.hdr_len == 64:
+					if hdr.comment_offset and hdr.comment_len:
+						self.twoimg_comment = self.image[
+								hdr.comment_offset
+								: hdr.comment_offset + hdr.comment_len]
+					if hdr.creator_offset and hdr.creator_len:
+						self.twoimg_creator = self.image[
+								hdr.creator_offset
+								: hdr.creator_offset + hdr.creator_len]
+					self.twoimg_locked = bool(hdr.flags & 0x80000000)
+					self.twoimg = hdr
+				else:
+					log.warn('2mg header length: {} (expected 64 '
+							'for version 1)'.format(hdr.hdr_len))
+			else:
+				log.warn('2mg version unsupported: {} (only support '
+						'version 1)'.format(hdr.version))
+		else:
+			log.warn('2mg header not found: magic is {}'.format(hdr.magic))
+			self._raw_twoimg = None
 
 
 ### UTIL
