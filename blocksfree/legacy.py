@@ -776,10 +776,6 @@ def quit_now(exitcode=0):
 				shutil.rmtree('/tmp' + "/" + file)
 	sys.exit(exitcode)
 
-def usage(exitcode=1):
-	print(sys.modules[__name__].__doc__)
-	quit_now(exitcode)
-
 def to_sys_name(name):
 	if os.name == 'nt':
 		if name[-1] == '.':
@@ -1033,59 +1029,6 @@ def hexdump(
 
 
 def run_cppo(args: list):
-	while True: # breaks when there are no more arguments starting with dash
-		if len(args) == 1:
-			usage()
-
-		elif args[1][0] != '-':
-			break
-
-		elif args[1] == '-s':
-			g.afpsync_msg = False
-			args = args[1:]
-
-		elif args[1] == '-n':
-			g.extract_in_place = True
-			args = args[1:]
-
-		elif args[1] == '-uc':
-			g.casefold_upper = True
-			args = args[1:]
-
-		elif args[1] == '-ad':
-			g.use_appledouble = True
-			g.prodos_names = True
-			args = args[1:]
-
-		elif args[1] == '-shk':
-			g.src_shk = True
-			args = args[1:]
-
-		elif args[1] == '-pro':
-			g.prodos_names = True
-			args = args[1:]
-
-		elif args[1] == '-e':
-			g.use_extended = True
-			g.prodos_names = True
-			args = args[1:]
-
-		elif args[1] == '-cat':
-			g.catalog_only = True
-			args = args[1:]
-
-		else:
-			usage()
-
-	if g.use_appledouble and g.use_extended:
-		usage()
-	if g.catalog_only:
-		if len(args) != 2:
-			usage()
-	else:
-		if len(args) not in (3, 4):
-			usage()
-
 	try:
 		disk = Disk(args[1])
 	except IOError as e:
@@ -1279,7 +1222,9 @@ def run_cppo(args: list):
 	# enforce leading slash if ProDOS
 	if (not g.src_shk and not g.dos33 and g.extract_file
 			and (args[2][0] not in ('/', ':'))):
-		usage()
+		log.critical("Cannot extract {} from {}: "
+				"ProDOS volume name required".format(args[2], args[1]))
+		quit_now(2)
 
 	if g.dos33:
 		disk_name = (disk.diskname

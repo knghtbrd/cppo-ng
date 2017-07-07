@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# vim: set tabstop=4 shiftwidth=4 noexpandtab filetype=python:
+
+# Copyright (C) 2013-2016  Ivan Drucker
+# Copyright (C) 2017       T. Joseph Carter
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+# for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+#
+#
+# If interested, please see the file HISTORY.md for information about both the
+# technical and licensing decisions that have gone into the rewriting of cppo.
+
+"""cppo: Copy/catalog files from a ProDOS/DOS 3.3/ShrinkIt image/archive.
+
+copy all files: cppo [options] imagefile target_directory
+copy one file : cppo [options] imagefile /extract/path target_path
+catalog image : cppo -cat [options] imagefile
+
+options:
+-shk: ShrinkIt archive as source (also auto-enabled by filename).
+-ad : Netatalk-compatible AppleDouble metadata files and resource forks.
+-e  : Nulib2-compatible filenames with type/auxtype and resource forks.
+-uc : Copy GS/OS mixed case filenames as uppercase.
+-pro: Adapt DOS 3.3 names to ProDOS and remove addr/len from file data.
+
+/extract/path examples:
+    /FULL/PRODOS/PATH (ProDOS image source)
+    "MY FILENAME" (DOS 3.3 image source)
+    Dir:SubDir:FileName (ShrinkIt archive source)
+
++ after a file name indicates a GS/OS or Mac OS extended (forked) file.
+Wildcard matching (*) is not supported and images are not validated.
+ShrinkIt support requires Nulib2. cppo requires Python 2.6+ or 3.0+."""
+
+import sys
+
+from blocksfree.legacy import g
+import blocksfree.legacy
+
+def usage(exitcode=1):
+	print(sys.modules[__name__].__doc__)
+	sys.exit(exitcode)
+
+def cppo(args: list):
+	while True: # breaks when there are no more arguments starting with dash
+		if len(args) == 1:
+			usage()
+
+		elif args[1][0] != '-':
+			break
+
+		elif args[1] == '-s':
+			g.afpsync_msg = False
+			args = args[1:]
+
+		elif args[1] == '-n':
+			g.extract_in_place = True
+			args = args[1:]
+
+		elif args[1] == '-uc':
+			g.casefold_upper = True
+			args = args[1:]
+
+		elif args[1] == '-ad':
+			g.use_appledouble = True
+			g.prodos_names = True
+			args = args[1:]
+
+		elif args[1] == '-shk':
+			g.src_shk = True
+			args = args[1:]
+
+		elif args[1] == '-pro':
+			g.prodos_names = True
+			args = args[1:]
+
+		elif args[1] == '-e':
+			g.use_extended = True
+			g.prodos_names = True
+			args = args[1:]
+
+		elif args[1] == '-cat':
+			g.catalog_only = True
+			args = args[1:]
+
+		else:
+			usage()
+
+	blocksfree.legacy.run_cppo(args)
+
+if __name__ == '__main__':
+	cppo(sys.argv)
