@@ -87,6 +87,7 @@ g.DIRPATH = ""
 g.target_name = None
 g.target_dir = ""
 g.appledouble_dir = None
+g.image_file = None
 g.extract_file = None
 
 # runtime options
@@ -1030,7 +1031,7 @@ def hexdump(
 
 def run_cppo(args: list):
 	try:
-		disk = Disk(args[1])
+		disk = Disk(g.image_file)
 	except IOError as e:
 		log.critical(e)
 		quit_now(2)
@@ -1049,24 +1050,6 @@ def run_cppo(args: list):
 				print(
 						"Nulib2 is not available; not expanding "
 						"ShrinkIt archive.")
-				quit_now(2)
-
-	if len(args) == 4:
-		g.extract_file = args[2]
-
-	if g.extract_file:
-		targetPath = args[3]
-		if os.path.isdir(targetPath):
-			g.target_dir = targetPath
-		elif len(targetPath.rsplit("/", 1)) > 1:
-			g.target_dir, g.target_name = targetPath.rsplit("/", 1)
-		if not os.path.isdir(g.target_dir):
-			print("Target directory {} not found.".format(g.target_dir))
-			quit_now(2)
-	else:
-		if not g.catalog_only:
-			if not os.path.isdir(args[2]):
-				print("Target directory not found.")
 				quit_now(2)
 
 	if g.src_shk:
@@ -1222,7 +1205,8 @@ def run_cppo(args: list):
 	if (not g.src_shk and not g.dos33 and g.extract_file
 			and (args[2][0] not in ('/', ':'))):
 		log.critical("Cannot extract {} from {}: "
-				"ProDOS volume name required".format(args[2], args[1]))
+				"ProDOS volume name required".format(
+					g.extract_file, g.image_file))
 		quit_now(2)
 
 	if g.dos33:

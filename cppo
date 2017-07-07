@@ -45,6 +45,7 @@ Wildcard matching (*) is not supported and images are not validated.
 ShrinkIt support requires Nulib2. cppo requires Python 2.6+ or 3.0+."""
 
 import sys
+import os
 
 from blocksfree.legacy import g
 import blocksfree.legacy
@@ -97,6 +98,35 @@ def cppo(args: list):
 
 		else:
 			usage()
+
+	if g.use_appledouble and g.use_extended:
+		usage()
+	if g.catalog_only:
+		if len(args) != 2:
+			usage()
+	else:
+		if len(args) not in (3, 4):
+			usage()
+
+	g.image_file = args[1]
+
+	if len(args) == 4:
+		g.extract_file = args[2]
+
+	if g.extract_file:
+		target_path = args[3]
+		if os.path.isdir(target_path):
+			g.target_dir = target_path
+		elif len(target_path.rsplit("/", 1)) > 1:
+			g.target_dir, g.target_name = target_path.rsplit("/", 1)
+		if not os.path.isdir(g.target_dir):
+			log.critical("Directory {} not found.".format(g.target_dir))
+			sys.exit(2)
+	else:
+		if not g.catalog_only:
+			if not os.path.isdir(args[2]):
+				log.critical("Directory {} not found.".format(g.target_dir))
+				sys.exit(2)
 
 	blocksfree.legacy.run_cppo(args)
 
