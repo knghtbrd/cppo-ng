@@ -1032,7 +1032,7 @@ def hexdump(
 	return '\n'.join(out)
 
 
-def main(args: list):
+def run_cppo(args: list):
 	while True: # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
 			usage()
@@ -1334,6 +1334,3 @@ def main(args: list):
 				makedirs(g.appledouble_dir)
 		process_dir(2)
 		quit_now(0)
-
-if __name__ == '__main__':
-	main(sys.argv)
