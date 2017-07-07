@@ -42,7 +42,7 @@ options:
 
 + after a file name indicates a GS/OS or Mac OS extended (forked) file.
 Wildcard matching (*) is not supported and images are not validated.
-ShrinkIt support requires Nulib2. cppo requires Python 2.6+ or 3.0+."""
+ShrinkIt support requires Nulib2. cppo requires xxxPython 3.5+."""
 
 import sys
 import os
