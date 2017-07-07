@@ -1052,17 +1052,16 @@ def run_cppo(args: list):
 				quit_now(2)
 
 	if len(args) == 4:
-		print(args)
 		g.extract_file = args[2]
 
 	if g.extract_file:
 		targetPath = args[3]
 		if os.path.isdir(targetPath):
 			g.target_dir = targetPath
-		elif targetPath.rsplit("/", 1) > 1:
+		elif len(targetPath.rsplit("/", 1)) > 1:
 			g.target_dir, g.target_name = targetPath.rsplit("/", 1)
 		if not os.path.isdir(g.target_dir):
-			print("Target directory not found.")
+			print("Target directory {} not found.".format(g.target_dir))
 			quit_now(2)
 	else:
 		if not g.catalog_only:
