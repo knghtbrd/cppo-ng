@@ -1,6 +1,7 @@
 
 import sys
 import logging
+import textwrap
 
 ### LOGGING
 # *sigh* No clean/simple way to use str.format() type log strings without
@@ -20,10 +21,11 @@ class StyleAdapter(logging.LoggerAdapter):
 
 	def log(self, level, msg, *args, **kwargs):
 		if self.isEnabledFor(level):
-			msg, kwargs = self.process(msg, kwargs)
+			msg, kwargs = self.process(textwrap.dedent(msg), kwargs)
 			self.logger._log(level, Message(str(msg), args), (), **kwargs)
 
 log = StyleAdapter(logging.getLogger(__name__))
+
 
 # Set up our logging facility
 _handler = logging.StreamHandler(sys.stdout)
