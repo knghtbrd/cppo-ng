@@ -29,7 +29,7 @@ log = StyleAdapter(logging.getLogger(__name__))
 
 # Set up our logging facility
 _handler = logging.StreamHandler(sys.stdout)
-_formatter = logging.Formatter('%(levelname)s: %(message)s')
+_formatter = logging.Formatter('%(message)s')
 _handler.setFormatter(_formatter)
 log.logger.addHandler(_handler)
 log.setLevel(logging.DEBUG)
