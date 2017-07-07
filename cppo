@@ -47,7 +47,6 @@ ShrinkIt support requires Nulib2. cppo requires xxxPython 3.5+."""
 import sys
 import os
 
-from blocksfree.legacy import g
 import blocksfree.legacy
 
 def usage(exitcode=1):
@@ -55,6 +54,8 @@ def usage(exitcode=1):
 	sys.exit(exitcode)
 
 def cppo(args: list):
+	g = blocksfree.legacy.g
+
 	while True: # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
 			usage()
