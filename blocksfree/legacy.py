@@ -1029,7 +1029,7 @@ def hexdump(
 	return '\n'.join(out)
 
 
-def run_cppo(args: list):
+def run_cppo():
 	try:
 		disk = Disk(g.image_file)
 	except IOError as e:
@@ -1054,14 +1054,12 @@ def run_cppo(args: list):
 
 	if g.src_shk:
 		g.prodos_names = False
-		if not g.catalog_only:
-			targetDir = (args[3] if g.extract_file else args[2])
 		unshkdir = ('/tmp' + "/cppo-" + str(uuid.uuid4()))
 		makedirs(unshkdir)
 		result = os.system(
 				"/bin/bash -c 'cd " + unshkdir + "; "
 				+ "result=$(nulib2 -xse " + os.path.abspath(disk.pathname)
-				+ ((" " + args[2].replace('/', ':'))
+				+ ((" " + g.extract_file.replace('/', ':'))
 					if g.extract_file else "") + " 2> /dev/null); "
 				+ "if [[ $result == \"Failed.\" ]]; then exit 3; "
 				+ "else if grep -q \"no records match\" <<< \"$result\""
@@ -1113,12 +1111,10 @@ def run_cppo(args: list):
 			subdirList.sort()
 			if not g.catalog_only:
 				g.target_dir = (
-						targetDir
+						g.target_dir
 						+ ("" if curDir else ("/" + volumeName))
 						+ ("/" if dirName.count('/') > 2 else "")
 						+ ("/".join(dirName.split('/')[3:]))) # chop tempdir
-				if g.extract_file: # solo item, so don't put it in the tree
-					g.target_dir = targetDir
 				if g.casefold_upper:
 					g.target_dir = g.target_dir.upper()
 				g.appledouble_dir = (g.target_dir + "/.AppleDouble")
@@ -1203,22 +1199,21 @@ def run_cppo(args: list):
 
 	# enforce leading slash if ProDOS
 	if (not g.src_shk and not g.dos33 and g.extract_file
-			and (args[2][0] not in ('/', ':'))):
+			and (g.extract_file[0] not in ('/', ':'))):
 		log.critical("Cannot extract {} from {}: "
 				"ProDOS volume name required".format(
 					g.extract_file, g.image_file))
 		quit_now(2)
 
 	if g.dos33:
-		disk_name = (disk.diskname
-				if disk.ext in ('.dsk', '.do', '.po')
+		disk_name = (disk.diskname if disk.ext in ('.dsk', '.do', '.po')
 				else disk.filename)
 		if g.prodos_names:
 			disk_name = toProdosName(disk_name)
 		if not g.catalog_only:
-			g.target_dir = (args[3]
-					if g.extract_file
-					else (args[2] + "/" + disk_name))
+			print(g.target_dir)
+			g.target_dir = (g.extract_file if g.extract_file
+					else (g.target_dir + "/" + disk_name))
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			makedirs(g.target_dir)
 			if g.use_appledouble:
@@ -1254,7 +1249,7 @@ def run_cppo(args: list):
 		quit_now(2)
 	else:
 		if not g.catalog_only:
-			g.target_dir = (args[2] + "/" + getVolumeName().decode())
+			g.target_dir = (g.target_dir + "/" + getVolumeName().decode())
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			if not os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)

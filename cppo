@@ -124,11 +124,12 @@ def cppo(args: list):
 			sys.exit(2)
 	else:
 		if not g.catalog_only:
-			if not os.path.isdir(args[2]):
+			g.target_dir = args[2]
+			if not os.path.isdir(g.target_dir):
 				log.critical("Directory {} not found.".format(g.target_dir))
 				sys.exit(2)
 
-	blocksfree.legacy.run_cppo(args)
+	blocksfree.legacy.run_cppo()
 
 if __name__ == '__main__':
 	cppo(sys.argv)
