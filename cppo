@@ -35,11 +35,12 @@ import errno
 import uuid # for temp directory
 import subprocess
 #import tempfile # not used, but should be for temp directory?
-import logging
 import struct
 from typing import Sequence
 from collections import namedtuple
 from binascii import a2b_hex, b2a_hex
+
+from blocksfree.logging import log
 
 class Globals:
 	pass
@@ -1010,38 +1011,7 @@ def hexdump(
 	return '\n'.join(out)
 
 
-### LOGGING
-# *sigh* No clean/simple way to use str.format() type log strings without
-# jumping through a few hoops
-
-class Message(object):
-	def __init__(self, fmt, args):
-		self.fmt = fmt
-		self.args = args
-
-	def __str__(self):
-		return self.fmt.format(*self.args)
-
-class StyleAdapter(logging.LoggerAdapter):
-	def __init__(self, logger, extra=None):
-		super(StyleAdapter, self).__init__(logger, extra or {})
-
-	def log(self, level, msg, *args, **kwargs):
-		if self.isEnabledFor(level):
-			msg, kwargs = self.process(msg, kwargs)
-			self.logger._log(level, Message(str(msg), args), (), **kwargs)
-
-log = StyleAdapter(logging.getLogger(__name__))
-
-
 def main(args: list):
-	# Set up our logging facility
-	handler = logging.StreamHandler(sys.stdout)
-	formatter = logging.Formatter('%(levelname)s: %(message)s')
-	handler.setFormatter(formatter)
-	log.logger.addHandler(handler)
-	log.setLevel(logging.DEBUG)
-
 	while True: # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
 			usage()
