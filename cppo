@@ -56,7 +56,7 @@ def usage(exitcode=1):
 def cppo(args: list):
 	g = blocksfree.legacy.g
 
-	while True: # breaks when there are no more arguments starting with dash
+	while True:  # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
 			usage()
 
