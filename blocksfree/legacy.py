@@ -314,7 +314,7 @@ def getFileLength(arg1, arg2):
 			pos = ts(prevTSpair)
 			# now find out where the file really ends by finding the last 00
 			for offset in range(255, -1, -1):
-				#print("pos: " + to_hex(pos))
+				#print("pos: {#b}".format(pos))
 				if g.image_data[pos+offset] != 0:
 					file_size += (offset + 1)
 					break
@@ -711,7 +711,7 @@ def processIndexBlock(arg1, arg2=False):
 	while g.activeFileBytesCopied < g.activeFileSize:
 		if g.dos33:
 			targetTS = list(g.image_data[sli(ts(arg1)+pos,2)])
-			#print(to_hex(targetTS[0]),to_hex(targetTS[1]))
+			#print('{02x} {02x}'.format(targetTS[0], targetTS[1]))
 			bytesRemaining = (g.activeFileSize - g.activeFileBytesCopied)
 			bs = (bytesRemaining if bytesRemaining < 256 else 256)
 			copyBlock(targetTS, bs)
@@ -783,21 +783,6 @@ def to_sys_name(name):
 	return name
 
 #---- IvanX general purpose functions ----#
-
-def to_hex(val):
-	"""convert bytes, decimal number, or [bin-ustr] to two-digit hex values
-	unlike hex(), accepts bytes; has no leading 0x or trailing L"""
-	if isinstance(val, list):  # [bin-ustr]
-		val = int(val[0], 2)
-
-	if isinstance(val, bytes):  # bytes
-		return b2a_hex(val).decode()
-	elif isnumber(val):
-		if val < 0:
-			print ("val: " + str(val))
-		return b2a_hex(bytes([val])).decode()
-	else:
-		raise Exception("to_hex() requires bytes, int/long, or [bin-ustr]")
 
 def touch(file_path, modTime=None):
 	# http://stackoverflow.com/questions/1158076/implement-touch-using-python
