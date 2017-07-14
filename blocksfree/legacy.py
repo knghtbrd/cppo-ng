@@ -799,19 +799,6 @@ def to_hex(val):
 	else:
 		raise Exception("to_hex() requires bytes, int/long, or [bin-ustr]")
 
-def to_dec(val):
-	"""convert bytes, hex-ustr or [bin-ustr] to decimal int/long"""
-	if isinstance(val, list):  # [bin-ustr]
-		return int(val[0], 2)
-	elif isinstance(val, bytes):  # bytes
-		return int(to_hex(val), 16)
-	elif isinstance(val, str):  # hex-ustr
-		return int(val, 16)
-	elif isnumber(val):  # int/long
-		return val
-	else:
-		raise Exception("to_dec() requires bytes, hex-ustr or [bin-ustr]")
-
 def to_bytes(val):
 	"""converts hex-ustr, int/long, or [bin-ustr] to bytes"""
 	if isinstance(val, list):  # [bin-ustr]
