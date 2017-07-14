@@ -799,23 +799,6 @@ def to_hex(val):
 	else:
 		raise Exception("to_hex() requires bytes, int/long, or [bin-ustr]")
 
-def to_bytes(val):
-	"""converts hex-ustr, int/long, or [bin-ustr] to bytes"""
-	if isinstance(val, list):  # [bin-ustr]
-		val = to_hex(val[0])
-	if isnumber(val):  # int/long
-		if val < 256:
-			return chr(val).encode()
-		else:
-			val = to_hex(val)
-
-	if isinstance(val, str):  # hex-ustr
-		return a2b_hex(val.encode())
-	elif isinstance(val, bytes):
-		return val
-	else:
-		raise Exception("to_bytes() requires hex-ustr, int/long, or [bin-ustr]")
-
 def touch(file_path, modTime=None):
 	# http://stackoverflow.com/questions/1158076/implement-touch-using-python
 	#print(file_path)
