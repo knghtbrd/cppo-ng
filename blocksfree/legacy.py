@@ -223,7 +223,7 @@ def getCaseMask(arg1, arg2):
 	if caseMaskDec < 32768:
 		return None
 	else:
-		return to_bin(caseMaskDec - 32768, 15)
+		return format(caseMaskDec - 32768, '015b')
 
 def getFileType(arg1, arg2):
 	if g.src_shk:
@@ -363,7 +363,7 @@ def getWorkingDirName(arg1, arg2=None):
 		if caseMaskDec < 32768:
 			caseMask = None
 		else:
-			caseMask = to_bin(caseMaskDec - 32768,15)
+			caseMask = format(caseMaskDec - 32768,'015b')
 	else:  # subdirectory, get casemask from arg2 (not available in header)
 		caseMask = arg2
 	if caseMask and not g.casefold_upper:
@@ -811,18 +811,6 @@ def to_dec(val):
 		return val
 	else:
 		raise Exception("to_dec() requires bytes, hex-ustr or [bin-ustr]")
-
-def to_bin(val, fill = None):
-	"""convert bytes, hex-ustr, or int/long to bin-ustr"""
-	if isinstance(val, bytes):  # bytes
-		b = bin(to_dec(to_hex(val)))[2:]
-	elif isinstance(val, str):  # hex-ustr
-		b = bin(int(val, 16))[2:]
-	elif isnumber(val):  # int/long
-		b = bin(val)[2:]
-	else:
-		raise Exception("to_bin() requires bytes, hex-ustr, or int/long")
-	return b if not fill else b.zfill(fill)
 
 def to_bytes(val):
 	"""converts hex-ustr, int/long, or [bin-ustr] to bytes"""
