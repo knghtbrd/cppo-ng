@@ -22,43 +22,74 @@ This module serves as a catch-all generally for functions that don't seem to
 belong somewhere else.
 """
 
-from typing import Sequence, Iterator
+from typing import Callable, Iterator, Sequence
 
 def seqsplit(seq: Sequence, num: int) -> Iterator[Sequence]:
 	"""Returns a generator that yields num-sized slices of seq"""
 	for i in range(0, len(seq), num):
 		yield seq[i:i + num]
 
+def hexchars(line):
+	"""Return canonical-format hex values of sixteen bytes"""
+	vals = [format(b, '02x') for b in line]
+	return '  '.join(' '.join(part) for part in seqsplit(vals, 8))
+
+def printables(line: bytes, mask_high: bool = False):
+	"""Return ASCII printable string from bytes
+
+	If mask_high is set, the high bit on a byte is ignored when testing it for
+	printability.
+	"""
+	return ''.join(
+			chr(c) if 0x20 <= c < 127 else '.' for c in [
+				b & 0x7f if mask_high else b for b in line])
+
+
+def gen_hexdump(
+		buf: bytes,
+		verbose: bool = False,
+		mask_high: bool = False
+		) -> Iterator[str]:
+	"""Return an iterator of hexdump lines of a bytes object
+
+	verbose=True outputs all data
+	mask_high=True treats bytes as 7 bit for printability test
+
+	Output is in "canonical" hex+ASCII format as produced by BSD hexdump(1)
+	with the -C argument.  It should be very familiar to people who have used
+	hexdumps before: 32 bit offset, space-delimited hex values of 16 bytes with
+	an extra space in the middle, and character representations of those same
+	bytes, either ASCII character if printable or dot (.) if nonprintable.  A
+	final line contains total length.
+
+	As with the unix command, output is empty on a zero-length byte object.
+	"""
+	buf = memoryview(buf)
+	last = None
+	outstar = True
+	i = 0
+
+	for i, line in enumerate(seqsplit(buf, 16)):
+		if not verbose and line == last:
+			if outstar:
+				# Next line output will be if line != last
+				outstar = False
+				yield '*'
+		else:
+			# Set up for next line
+			last, outstar = line, True
+			yield "{:07x}0  {:48}  |{:16}|".format(
+					i, hexchars(line), printables(line, mask_high))
+
+	if last is not None:
+		yield format(i * 16 + len(last), '08x')
+
 def hexdump(
 		buf: bytes,
-		striphigh: bool = False,
-		wordsize: int = 2,
-		sep: str = ' ',
-		sep2: str = '  '
-		) -> str:
-	"""return a multi-line debugging hexdump of a bytes object"""
-	'''Format is configurable but defaults to that of xxd:
-
-	########: #### #### #### ####  #### #### #### #### |................|
-
-	wordsize is the number of bytes between separators
-	sep is the separator between words
-	sep2 is the midline separator
-	striphigh considers 0xa0-0xfe to be printable ASCII (as on Apple II)
-	'''
-	out = []
-	hlen = 32 + len(sep2) + (16//wordsize-2) * len(sep)
-	wordlen = wordsize * 2
-	for i, vals in enumerate(seqsplit(buf, 16)):
-		hexs = sep2.join([
-			sep.join(seqsplit(b2a_hex(x).decode(), wordlen))
-			for x in seqsplit(vals,8)
-			])
-		if striphigh:
-			vals = [x & 0x7f for x in vals]
-		chars = ''.join([
-			chr(x) if x >= 0x20 and x < 0x7f else '.'
-			for x in vals
-			])
-		out.append('{i:07x}0: {hexs:{hlen}} |{chars}|'.format(**locals()))
-	return '\n'.join(out)
+		verbose: bool = False,
+		mask_high: bool = False,
+		func: Callable[[str], None] = print
+		) -> None:
+	"""Pass each line of a hexdump of buf to func (print by default)"""
+	for line in gen_hexdump(buf, verbose, mask_high):
+		func(line)
