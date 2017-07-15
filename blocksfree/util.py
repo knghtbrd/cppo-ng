@@ -16,10 +16,10 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-from typing import Sequence
+from typing import Sequence, Iterator
 
-def seqsplit(seq: Sequence, num: int) -> Sequence:
-	"""split Sequence into smaller Sequences of size 'num'"""
+def seqsplit(seq: Sequence, num: int) -> Iterator[Sequence]:
+	"""Returns a generator that yields num-sized slices of seq"""
 	for i in range(0, len(seq), num):
 		yield seq[i:i + num]
 
