@@ -2,7 +2,7 @@
 
 This project began as cppo-ng, an attempt to begin evolving cppo, a script
 written by Ivan Drucker, to be more pythonic.  It's growing into something a
-bit bigger than that, however.  See <HISTORY.md> if you want details about
+bit bigger than that, however.  See [HISTORY.md][] if you want details about
 where it started and how it's gotten here.
 
 The goal is no longer simply to clean up the `cppo` script!
@@ -34,12 +34,10 @@ limitations.  Better to emulate the old cppo using a new interface.  You can do
 this with a runner that provides the old interface alongside the modern one.
 That's the plan.
 
-The possibility of using [urwid]() exists to provide a textual interface.  It's
+The possibility of using [urwid][] exists to provide a textual interface.  It's
 probably desirable for any GUI to be abstract enough to have multiple
 implementations, but the idea that you might want a textual interface should be
 considered.
-
-[urwid]: http://urwid.org/
 
 
 ## Documentation
@@ -50,3 +48,6 @@ If you'd like to write some.  :)
 ## Contributions
 
 Yes please!
+
+[HISTORY.md]: HISTORY.md
+[urwid]: http://urwid.org/

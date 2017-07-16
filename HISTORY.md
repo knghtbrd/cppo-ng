@@ -44,8 +44,7 @@ absolutely minimally essential.  This is not because of Java's flaws.  No,
 these are largely irrelevant.  Rather, Java is regarded as a pariah because of
 parent company Oracle.
 
-The basic details are in [this InfoWorld article](oracle-v-google).
-[oracle-v-goole]: http://www.infoworld.com/article/2617268/java/oracle-vs--google--who-owns-the-java-apis-.html
+The basic details are in [this InfoWorld article][oracle-v-google].
 
 A concrete example in C:
 
@@ -180,3 +179,5 @@ and proper.  We benefit from cool things they did.  And honestly, if we got
 nothing more than time saved testing a couple hundred gigabytes of disk images
 to find out how other people's software produced technically invalid but usable
 disk images and how to salvage them, we owe them immeasurable gratitude!
+
+[oracle-v-google]: http://www.infoworld.com/article/2617268/java/oracle-vs--google--who-owns-the-java-apis-.html
