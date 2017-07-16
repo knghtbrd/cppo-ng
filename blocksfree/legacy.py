@@ -823,18 +823,6 @@ def dopo_swap(image_data):
 			dopo[dst:dst+256] = image_data[src:src+256]
 	return bytes(dopo)
 
-def isnumber(number):
-	try:  # make sure it's not a string
-		len(number)
-		return False
-	except TypeError:
-		pass
-	try:
-		int(number)
-	except ValueError:
-		return False
-	return True
-
 #---- end IvanX general purpose functions ----#
 
 def run_cppo():
