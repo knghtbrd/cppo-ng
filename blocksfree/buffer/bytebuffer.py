@@ -18,6 +18,7 @@
 
 from typing import Optional, Union
 from .buffertype import BufferType
+from ..util import gen_hexdump
 
 class ByteBuffer(BufferType):
 	"""ByteBuffer(bytes_or_int[, changed[, locked]]) -> ByteBuffer
@@ -116,3 +117,19 @@ class ByteBuffer(BufferType):
 	@locked.setter
 	def locked(self, value: bool) -> None:
 		self._locked = value
+
+	def __repr__(self):
+		"""Return repr(self)
+
+		This will be a very long string for any buffer of non-trivial length
+		"""
+		return 'ByteBuffer({_buf}, {_changed}, {_locked})'.format_map(
+				vars(self))
+
+	def __str__(self):
+		"""Return str(self)
+
+		This will be a very long string containing newlines for any buffer of
+		non-trivial length
+		"""
+		return '\n'.join(gen_hexdump(self._buf))
