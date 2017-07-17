@@ -16,7 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 """
-Util functions
+Utility functions for blocksfree.
 
 This module serves as a catch-all generally for functions that don't seem to
 belong somewhere else.
@@ -25,44 +25,97 @@ belong somewhere else.
 from typing import Callable, Iterator, Sequence
 
 def seqsplit(seq: Sequence, num: int) -> Iterator[Sequence]:
-	"""Returns a generator that yields num-sized slices of seq"""
+	"""Return a sequence in num-sized pieces.
+
+	Args:
+		seq: A sequence type (bytes, list, etc.)
+		num: The maximum length of sequence desired
+
+	Yields:
+		The next num items from seq or as many as remain.  The last sequence we
+		yield may be shorter than mum elements.
+	"""
 	for i in range(0, len(seq), num):
 		yield seq[i:i + num]
 
-def hexchars(line):
-	"""Return canonical-format hex values of sixteen bytes"""
+def hexchars(line: bytes) -> str:
+	"""Return a canonical byte hexdump string of byte values.
+
+	NB: This function will be memory intensive if called on large objects.  It
+	is actually intended to be called on at most 16 bytes at a time to produce
+	a data for a single line of a canonical hexdump.
+
+	Args:
+		line: a bytes-like object to be dumped
+
+	Returns:
+		A string containing a canonical-style hex dump of byte values with
+		space delimiters in groups of eight.  The format has this pattern:
+
+		## ## ## ## ## ## ## ##  ## ## ## ## ## ## ## ##  ## ## ##...
+
+		The string will not be padded to a fixed length.
+	"""
 	vals = [format(b, '02x') for b in line]
 	return '  '.join(' '.join(part) for part in seqsplit(vals, 8))
 
-def printables(line: bytes, mask_high: bool = False):
-	"""Return ASCII printable string from bytes
+def printables(line: bytes, mask_high: bool = False) -> str:
+	r"""Return ASCII printable string from bytes for hexdump.
 
-	If mask_high is set, the high bit on a byte is ignored when testing it for
-	printability.
+	Args:
+		line: The bytes to convert to ASCII
+		mask_high: True to mask away high bit before testing printability
+
+	Returns:
+		String of printable ASCII characters equal to the number of bytes in
+		line.  All non-printable characters will be replaced by a dot (.) in
+		the style of a canonical hexdump.
+
+		If mask_high is True, the high bit of each character will be ignored.
+		In that case b'\x41' and b'\xc1' will both produce 'A'.
 	"""
-	return ''.join(
-			chr(c) if 0x20 <= c < 127 else '.' for c in [
-				b & 0x7f if mask_high else b for b in line])
+	ascii_ = []
+	for char in line:
+		if mask_high:
+			char = char & 0x7f
+		ascii_.append(chr(char) if 0x20 <= char < 0x7f else '.')
+	return ''.join(ascii_)
 
 
-def gen_hexdump(
+def hexdump_gen(
 		buf: bytes,
 		verbose: bool = False,
 		mask_high: bool = False
 		) -> Iterator[str]:
-	"""Return an iterator of hexdump lines of a bytes object
+	"""Yield lines of a hexdump of a bytes-like object.
 
-	verbose=True outputs all data
-	mask_high=True treats bytes as 7 bit for printability test
+	Args:
+		buf: A bytes-like object to be hexdumped
+		verbose: Include full output rather than collapsing duplicated lines
+		mask_high: Strip high bit of each byte for testing printable characters
+			(see printables() above)
 
-	Output is in "canonical" hex+ASCII format as produced by BSD hexdump(1)
-	with the -C argument.  It should be very familiar to people who have used
-	hexdumps before: 32 bit offset, space-delimited hex values of 16 bytes with
-	an extra space in the middle, and character representations of those same
-	bytes, either ASCII character if printable or dot (.) if nonprintable.  A
-	final line contains total length.
+	Yields:
+		For a zero-length buf, nothing.
 
-	As with the unix command, output is empty on a zero-length byte object.
+		With verbose, lines of at most 16 bytes in the format:
+			'<offset>  <hex bytes>  |<ASCII bytes>|'
+		The last line provides the total number of bytes in the buffer:
+			'<offset>'
+
+		With not verbose, repeated lines whose data is the same as the line
+		just printed are compressed.  Unique lines are as before:
+			'<offset>  <hex bytes>  |<ASCII bytes>|'
+		All lines whose bytes are identical to the previously printed line will
+		be compressed to a line containing an asterisk:
+			'*'
+		The last line provides the total number of bytes in the buffer:
+			'<offset>'
+
+		The <offset> format is 8 hex digits with no prefix.  Individual bytes
+		in <hex bytes> are 2 hex digits with no prefix, see hexchars() for the
+		precise format.  The <ASCII bytes> format is described for the function
+		printables() and is bracketed by two pipe (|) characters as shown here.
 	"""
 	buf = memoryview(buf)
 	last = None
@@ -72,12 +125,11 @@ def gen_hexdump(
 	for i, line in enumerate(seqsplit(buf, 16)):
 		if not verbose and line == last:
 			if outstar:
-				# Next line output will be if line != last
-				outstar = False
+				outstar = False  # Ensure we yield only one star
 				yield '*'
 		else:
-			# Set up for next line
-			last, outstar = line, True
+			last = line
+			outstar = True  # This line is not a star
 			yield "{:07x}0  {:48}  |{:16}|".format(
 					i, hexchars(line), printables(line, mask_high))
 
@@ -90,6 +142,26 @@ def hexdump(
 		mask_high: bool = False,
 		func: Callable[[str], None] = print
 		) -> None:
-	"""Pass each line of a hexdump of buf to func (print by default)"""
-	for line in gen_hexdump(buf, verbose, mask_high):
+	"""Perform func for each line of a hexdump of buf.
+
+	Exists as a means to temporarily dump binary data to stdout to assist with
+	debugging stubborn code.  For other uses, it probably makes more sense to
+	call hexdump_gen() directly.  Do use this function for other purposes, set
+	func to something other than its default of the print function.  func()
+	will be passed each line of output as generated by hexdump_gen().  This is
+	memory-efficient for sizable buffers, but it is not fast as func is
+	effectively called for each sixteen bytes of buf.
+
+	See hexdump_gen for a more information about the other arguments to this
+	function and the format of the strings func will receive.
+
+	Args:
+		buf: the bytes-like object to be hexdumped
+		verbose: True if we should not compress duplicate output
+		mask_high: True high bit should be stripped for ASCII printability
+		func: The function to be called with each line from hexdump_gen
+	"""
+	for line in hexdump_gen(buf, verbose, mask_high):
 		func(line)
+
+gen_hexdump = hexdump_gen  # TODO(tjcarter): Fix blocksfree.buffer and remove
