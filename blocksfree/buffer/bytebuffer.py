@@ -16,9 +16,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-from typing import Optional, Union
+from typing import Dict, List, Optional, Union
 from .buffertype import BufferType
-from ..util import gen_hexdump
+from .. import util
 
 class ByteBuffer(BufferType):
 	"""ByteBuffer(bytes_or_int[, changed[, locked]]) -> ByteBuffer
@@ -45,7 +45,7 @@ class ByteBuffer(BufferType):
 	def read(
 			self,
 			start: int = 0,
-			count: Optional[int] = None,
+			count: int = 1,
 			limit: bool = True
 			) -> bytearray:
 		"""Return bytearray of count bytes from buffer beginning at start
@@ -63,7 +63,8 @@ class ByteBuffer(BufferType):
 				assert(start + count <= len(self._buf))
 		except AssertionError:
 			raise IndexError('buffer read with index out of range')
-		return bytes(self._buf[start:start + count])
+		ret = self._buf[start:start + count]
+		return bytes(ret) if count != 1 else int(ret[0])
 
 	def write(
 			self,
