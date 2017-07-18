@@ -60,7 +60,7 @@ import struct
 from binascii import a2b_hex, b2a_hex
 
 from . import diskimg
-from .logging import log
+from .logging import LOG
 
 class Globals:
 	pass
@@ -829,7 +829,7 @@ def run_cppo():
 	try:
 		disk = diskimg.Disk(g.image_file)
 	except IOError as e:
-		log.critical(e)
+		LOG.critical(e)
 		quit_now(2)
 
 	# automatically set ShrinkIt mode if extension suggests it
@@ -950,41 +950,41 @@ def run_cppo():
 
 	# handle 140k disk image
 	if len(g.image_data) == 143360:
-		log.debug("140k disk")
+		LOG.debug("140k disk")
 		prodos_disk = False
 		fix_order = False
 		# is it ProDOS?
 		if g.image_data[sli(ts(0,0), 4)] == b'\x01\x38\xb0\x03':
-			log.debug("detected ProDOS by boot block")
+			LOG.debug("detected ProDOS by boot block")
 			if g.image_data[sli(ts(0,1)+3, 6)] == b'PRODOS':
-				log.debug("order OK (PO)")
+				LOG.debug("order OK (PO)")
 				prodos_disk = True
 			elif g.image_data[sli(ts(0,14)+3, 6)] == b'PRODOS':
-				log.debug("order needs fixing (DO)")
+				LOG.debug("order needs fixing (DO)")
 				prodos_disk = True
 				fix_order = True
 		# is it DOS 3.3?
 		else:
-			log.debug("it's not ProDOS")
+			LOG.debug("it's not ProDOS")
 			if g.image_data[ts(17,0)+3] == 3:
 				vtocT, vtocS = g.image_data[sli(ts(17,0) + 1,2)]
 				if vtocT < 35 and vtocS < 16:
-					log.debug("it's DOS 3.3")
+					LOG.debug("it's DOS 3.3")
 					g.dos33 = True
 					# it's DOS 3.3; check sector order next
 					if g.image_data[ts(17,14)+2] != 13:
-						log.debug("order needs fixing (PO)")
+						LOG.debug("order needs fixing (PO)")
 						fix_order = True
 					else:
-						log.debug("order OK (DO)")
+						LOG.debug("order OK (DO)")
 		# fall back on disk extension if weird boot block (e.g. AppleCommander)
 		if not prodos_disk and not g.dos33:
-			log.debug("format and ordering unknown, checking extension")
+			LOG.debug("format and ordering unknown, checking extension")
 			if disk.ext in ('.dsk', '.do'):
-				log.debug("extension indicates DO, changing to PO")
+				LOG.debug("extension indicates DO, changing to PO")
 				fix_order = True
 		if fix_order:
-			log.debug("fixing order")
+			LOG.debug("fixing order")
 			g.image_data = dopo_swap(g.image_data)
 			#print("saving fixed order file as outfile.dsk")
 			#save_file("outfile.dsk", g.image_data)
@@ -996,7 +996,7 @@ def run_cppo():
 	# enforce leading slash if ProDOS
 	if (not g.src_shk and not g.dos33 and g.extract_file
 			and (g.extract_file[0] not in ('/', ':'))):
-		log.critical("Cannot extract {} from {}: "
+		LOG.critical("Cannot extract {} from {}: "
 				"ProDOS volume name required".format(
 					g.extract_file, g.image_file))
 		quit_now(2)
