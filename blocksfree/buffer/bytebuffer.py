@@ -126,10 +126,14 @@ class ByteBuffer(BufferType):
 		return 'ByteBuffer({_buf}, {_changed}, {_locked})'.format_map(
 				vars(self))
 
-	def __str__(self):
-		"""Return str(self)
+	def __str__(self) -> str:
+		"""Implement str(self)"""
+		return '<ByteBuffer of {} bytes>'.format(len(self._buf))
 
-		This will be a very long string containing newlines for any buffer of
-		non-trivial length
+	def hexdump(self, *args: List, **kwargs: Dict) -> None:
+		"""Performas a canonical hexdump of self.
+
+		Args:
+			Any for blocksfree.util.hexdump, see that function for details.
 		"""
-		return '\n'.join(gen_hexdump(self._buf))
+		util.hexdump(self._buf, *args, **kwargs)
