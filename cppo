@@ -53,10 +53,17 @@ import blocksfree.logging as logging
 LOG = logging.LOG
 
 def usage(exitcode=1):
+	"""Print script usage and exit "gracefully"
+
+	Args:
+		exitcode: The shell return value (1 is appropriate for errors)
+	"""
 	print(sys.modules[__name__].__doc__)
 	sys.exit(exitcode)
 
+#pylint: disable=too-many-branches,too-many-statements
 def main() -> None:
+	"""provide the legacy cppo CLI interface"""
 	# Setup logging
 	handler = logging.StreamHandler(sys.stdout)
 	formatter = logging.Formatter('{message}', style='{')
@@ -64,10 +71,10 @@ def main() -> None:
 	LOG.logger.addHandler(handler)
 	LOG.setLevel(logging.DEBUG)
 
-	g = blocksfree.legacy.g
+	g = blocksfree.legacy.g  #pylint: disable=invalid-name
 
 	args = sys.argv
-	while True:  # breaks when there are no more arguments starting with dash
+	while True:
 		if len(args) == 1:
 			usage()
 
@@ -151,6 +158,7 @@ def main() -> None:
 				sys.exit(2)
 
 	blocksfree.legacy.run_cppo()
+#pylint: enable=too-many-branches,too-many-statements
 
 if __name__ == '__main__':
 	main()
