@@ -82,7 +82,7 @@ class Disk:
 								hdr.comment_offset
 								: hdr.comment_offset + hdr.comment_len]
 						if len(self.twoimg_comment) != hdr.comment_len:
-							log.warn('invalid 2mg comment: {} bytes '
+							LOG.warn('invalid 2mg comment: {} bytes '
 									'(expected {} bytes)'.format(
 										len(self.twoimg_comment),
 										hdr.comment_len))
@@ -94,7 +94,7 @@ class Disk:
 								hdr.creator_offset
 								: hdr.creator_offset + hdr.creator_len]
 						if len(self.twoimg_creator) != hdr.creator_len:
-							log.warn('invalid 2mg creator: {} bytes '
+							LOG.warn('invalid 2mg creator: {} bytes '
 									'(expected {} bytes)'.format(
 										len(self.twoimg_creator),
 										hdr.creator_len))
@@ -104,12 +104,12 @@ class Disk:
 
 					self.twoimg = hdr
 				else:
-					log.warn('2mg header length: {} (expected 64 '
+					LOG.warn('2mg header length: {} (expected 64 '
 							'for version 1)'.format(hdr.hdr_len))
 			else:
-				log.warn('2mg version unsupported: {} (only support '
+				LOG.warn('2mg version unsupported: {} (only support '
 						'version 1)'.format(hdr.version))
 		else:
-			log.warn('2mg header not found: magic is {}'.format(hdr.magic))
+			LOG.warn('2mg header not found: magic is {}'.format(hdr.magic))
 			self._raw_twoimg = None
 

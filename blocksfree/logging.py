@@ -44,9 +44,15 @@ special case, just use a line continuation immediately after your opening
 quotes.  Another imperfect solution, but it does the job.
 """
 
-import sys
-import logging
 import textwrap
+import logging
+# pylint: disable=unused-import
+from logging import (
+		CRITICAL, DEBUG, ERROR, FATAL, INFO, WARNING,
+		Formatter,
+		StreamHandler
+		)  # For export
+# pylint: enable=unused-import
 from typing import List, Dict
 
 # pylint: disable=too-few-public-methods,missing-docstring
@@ -98,13 +104,4 @@ class StyleAdapter(logging.LoggerAdapter):
 			self.logger._log(level, Message(str(msg), args), (), **kwargs)
 			# pylint: enable=protected-access
 
-LOG = StyleAdapter(logging.getLogger(__name__))
-
-# Set up our logging facility
-# FIXME(tjcarter): get rid of log, let caller handle where it's going
-log = LOG
-_HANDLER = logging.StreamHandler(sys.stdout)
-_FORMATTER = logging.Formatter('{message}', style='{')
-_HANDLER.setFormatter(_FORMATTER)
-LOG.logger.addHandler(_HANDLER)
-LOG.setLevel(logging.DEBUG)
+LOG = StyleAdapter(logging.getLogger('blocksfree'))
