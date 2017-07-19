@@ -71,39 +71,48 @@ def main() -> None:
 		if len(args) == 1:
 			usage()
 
+		# End of flags
 		elif args[1][0] != '-':
 			break
 
+		# [UNDOCUMENTED] suppress afpsync message
 		elif args[1] == '-s':
 			g.afpsync_msg = False
 			args = args[1:]
 
+		# [UNDOCUMENTED] extract files in place
 		elif args[1] == '-n':
 			g.extract_in_place = True
 			args = args[1:]
 
+		# Extract GS/OS mixed case filenames as uppercase
 		elif args[1] == '-uc':
 			g.casefold_upper = True
 			args = args[1:]
 
+		# Create netatalk-compatible AppleDouble resource forks and type data
 		elif args[1] == '-ad':
 			g.use_appledouble = True
 			g.prodos_names = True
 			args = args[1:]
 
+		# Source file is ShrinkIt format (may be implied by extension)
 		elif args[1] == '-shk':
 			g.src_shk = True
 			args = args[1:]
 
+		# Adapt DOS 3.3 files to ProDOS format
 		elif args[1] == '-pro':
 			g.prodos_names = True
 			args = args[1:]
 
+		# Extract filenames using nulib2 conventsions for type/fork info
 		elif args[1] == '-e':
 			g.use_extended = True
 			g.prodos_names = True
 			args = args[1:]
 
+		# Catalog image rather than extract it
 		elif args[1] == '-cat':
 			g.catalog_only = True
 			args = args[1:]
