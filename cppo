@@ -56,7 +56,7 @@ def usage(exitcode=1):
 	print(sys.modules[__name__].__doc__)
 	sys.exit(exitcode)
 
-def cppo(args: list):
+def main() -> None:
 	# Setup logging
 	handler = logging.StreamHandler(sys.stdout)
 	formatter = logging.Formatter('{message}', style='{')
@@ -66,6 +66,7 @@ def cppo(args: list):
 
 	g = blocksfree.legacy.g
 
+	args = sys.argv
 	while True:  # breaks when there are no more arguments starting with dash
 		if len(args) == 1:
 			usage()
@@ -143,4 +144,4 @@ def cppo(args: list):
 	blocksfree.legacy.run_cppo()
 
 if __name__ == '__main__':
-	cppo(sys.argv)
+	main()
