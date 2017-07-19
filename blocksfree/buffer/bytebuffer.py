@@ -55,7 +55,7 @@ class ByteBuffer(BufferType):
 		return trncated or empty results as with python slicing
 		"""
 		if count is None:
-			count = len(self)
+			count = len(self) - start
 		try:
 			assert(start >= 0)
 			assert(count >= 0)
@@ -63,8 +63,24 @@ class ByteBuffer(BufferType):
 				assert(start + count <= len(self._buf))
 		except AssertionError:
 			raise IndexError('buffer read with index out of range')
-		ret = self._buf[start:start + count]
-		return bytes(ret) if count != 1 else int(ret[0])
+		return bytes(self._buf[start:start + count])
+
+	def read1(
+			self,
+			offset: int = 0,
+			limit: bool = True
+			) -> int:
+		"""Return int of single byte from buffer at offset
+
+		Should raise IndexError if an attempt to read past the end of the
+		buffer is made.
+		"""
+		try:
+			if limit == True:
+				assert 0 <= offset <= len(self._buf)
+		except AssertionError:
+			raise IndexError('buffer read with index out of range')
+		return self._buf[offset]
 
 	def write(
 			self,

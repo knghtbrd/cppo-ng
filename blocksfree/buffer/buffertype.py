@@ -86,6 +86,19 @@ class BufferType(metaclass=ABCMeta):
 		"""
 		pass
 
+	@abstractmethod
+	def read1(
+			self,
+			offset: int = 0,
+			limit: bool = True
+			) -> int:
+		"""Return int of single byte from buffer at offset
+
+		Should raise IndexError if an attempt to read past the end of the
+		buffer is made.
+		"""
+		pass
+
 	def write(
 			self,
 			buf: bytes,
