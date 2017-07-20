@@ -67,7 +67,6 @@ class Globals:
 
 g = Globals()
 
-g.image_data = b''
 g.out_data = bytearray(b'')
 g.ex_data = None
 
@@ -190,25 +189,25 @@ def getStartPos(arg1, arg2):
 				+ (39 * ((arg2 + (arg2 > 11)) % 13))
 				+ (4 if arg2 > 11 else 43) )
 
-def getStorageType(arg1, arg2):
+def getStorageType(disk, arg1, arg2):
 	start = getStartPos(arg1, arg2)
-	firstByte = g.image_data[start]
+	firstByte = disk.buffer.read1(start)
 	return (int(firstByte != 255)*2 if g.dos33 else (firstByte//16))
 
-def getFileName(arg1, arg2):
+def getFileName(disk, arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
 		fileNameLo = bytearray()
-		fileNameHi = g.image_data[sli(start+3, 30)]
+		fileNameHi = disk.buffer.read(start + 3, 30)
 		for b in fileNameHi:
 			fileNameLo.append(b & 0x7f)
 		fileName = bytes(fileNameLo).rstrip()
 	else:  # ProDOS
-		firstByte = g.image_data[start]
+		firstByte = disk.buffer.read1(start)
 		entryType = firstByte//16
 		nameLength = firstByte - entryType*16
-		fileName = g.image_data[sli(start+1, nameLength)]
-		caseMask = getCaseMask(arg1, arg2)
+		fileName = disk.buffer.read(start + 1, nameLength)
+		caseMask = getCaseMask(disk, arg1, arg2)
 		if caseMask and not g.casefold_upper:
 			fileName = bytearray(fileName)
 			for i in range(0, len(fileName)):
@@ -217,20 +216,20 @@ def getFileName(arg1, arg2):
 			fileName = bytes(fileName)
 	return fileName
 
-def getCaseMask(arg1, arg2):
+def getCaseMask(disk, arg1, arg2):
 	start = getStartPos(arg1, arg2)
-	caseMaskDec = unpack_u16le(g.image_data, start + 28)
+	caseMaskDec = unpack_u16le(disk.buffer.read(start + 28, 2))
 	if caseMaskDec < 32768:
 		return None
 	else:
 		return format(caseMaskDec - 32768, '015b')
 
-def getFileType(arg1, arg2):
+def getFileType(disk, arg1, arg2):
 	if g.src_shk:
 		return arg2.split('#')[1][0:2]
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
-		d33fileType = g.image_data[start+2]
+		d33fileType = disk.buffer.read1(start + 2)
 		if (d33fileType & 127) == 4:
 			return '06'  # BIN
 		elif (d33fileType & 127) == 1:
@@ -240,22 +239,20 @@ def getFileType(arg1, arg2):
 		else:
 			return '04'  # TXT or other
 	else:  # ProDOS
-		return b2a_hex(g.image_data[start+16:start+17]).decode()
+		return format(disk.buffer.read1(start + 16), '02x')
 
-def getAuxType(arg1, arg2):
+def getAuxType(disk, arg1, arg2):
 	if g.src_shk:
 		return arg2.split('#')[1][2:6]
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
-		fileType = getFileType(arg1, arg2)
+		fileType = getFileType(disk, arg1, arg2)
 		if fileType == '06':  # BIN (B)
 			# file address is in first two bytes of file data
-			fileTSlist = list(g.image_data[sli(start+0,2)])
-			fileStart = list(g.image_data[sli(ts(fileTSlist)+12,2)])
-			return (
-					b2a_hex(g.image_data[sli(ts(fileStart)+1,1)]) +
-					b2a_hex(g.image_data[sli(ts(fileStart),1)])
-					).decode()
+			fileTSlist = list(disk.buffer.read(start, 2))
+			fileStart = list(disk.buffer.read(ts(fileTSlist)+12, 2))
+			file_addr = unpack_u16le(disk.buffer.read(ts(fileStart), 2))
+			return format(file_addr, '04x')
 		elif fileType == 'FC':  # BAS (A)
 			return '0801'
 		elif fileType == 'FA':  # INT (I)
@@ -263,27 +260,27 @@ def getAuxType(arg1, arg2):
 		else:  # TXT (T) or other
 			return '0000'
 	else:  # ProDOS
-		return format(unpack_u16le(g.image_data, start + 31), '04x')
+		return format(unpack_u16le(disk.buffer.read(start + 31, 2)) , '04x')
 
-def getKeyPointer(arg1, arg2):
+def getKeyPointer(disk, arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
-		return list(g.image_data[sli(start,2)])
+		return list(disk.buffer.read(start, 2))
 	else:  # ProDOS
-		return unpack_u16le(g.image_data, start + 17)
+		return unpack_u16le(disk.buffer.read(start + 17, 2))
 
-def getFileLength(arg1, arg2):
+def getFileLength(disk, arg1, arg2):
 	start = getStartPos(arg1, arg2)
 	if g.dos33:
-		fileType = getFileType(arg1, arg2)
-		fileTSlist = list(g.image_data[sli(start,2)])
-		fileStart = list(g.image_data[sli(ts(fileTSlist)+12,2)])
+		fileType = getFileType(disk, arg1, arg2)
+		fileTSlist = list(disk.buffer.read(start, 2))
+		fileStart = list(disk.buffer.read(ts(fileTSlist) + 12, 2))
 		if fileType == '06':  # BIN (B)
 			# file length is in second two bytes of file data
-			file_size = unpack_u16le(g.image_data, ts(fileStart) + 2) + 4
+			file_size = unpack_u16le(disk.buffer.read(ts(fileStart) + 2, 2)) + 4
 		elif fileType == 'FC' or fileType == 'FA':  # BAS (A) or INT (I)
 			# file length is in first two bytes of file data
-			file_size = unpack_u16le(g.image_data, ts(fileStart)) + 2
+			file_size = unpack_u16le(disk.buffer.read(ts(fileStart), 2)) + 2
 		else:  # TXT (T) or other
 			# sadly, we have to walk the whole file
 			# length is determined by sectors in TSlist, minus wherever
@@ -296,7 +293,7 @@ def getFileLength(arg1, arg2):
 			while not endFound:
 				pos = ts(nextTSlistSector)
 				for tsPos in range(12, 256, 2):
-					cur_ts_pair = list(g.image_data[sli(pos+tsPos,2)])
+					cur_ts_pair = list(disk.buffer.read(pos + tsPos, 2))
 					if ts(cur_ts_pair) != 0:
 						file_size += 256
 						prevTSpair = cur_ts_pair
@@ -305,7 +302,7 @@ def getFileLength(arg1, arg2):
 						endFound = True
 						break
 				if not lastTSpair:
-					nextTSlistSector = list(g.image_data[sli(pos+1,2)])
+					nextTSlistSector = list(disk.buffer.read(pos + 1, 2))
 					if nextTSlistSector[0]+nextTSlistSector[1] == 0:
 						lastTSpair = prevTSpair
 						endFound = True
@@ -315,15 +312,15 @@ def getFileLength(arg1, arg2):
 			# now find out where the file really ends by finding the last 00
 			for offset in range(255, -1, -1):
 				#print("pos: {#b}".format(pos))
-				if g.image_data[pos+offset] != 0:
+				if disk.buffer.read1(pos + offset) != 0:
 					file_size += (offset + 1)
 					break
 	else:  # ProDOS
-		file_size = unpack_u24le(g.image_data, start + 21)
+		file_size = unpack_u24le(disk.buffer.read(start + 21, 3))
 
 	return file_size
 
-def getCreationDate(arg1, arg2):
+def getCreationDate(disk, arg1, arg2):
 	#outputs prodos creation date/time as Unix time
 	#  (seconds since Jan 1 1970 GMT)
 	#or None if there is none
@@ -333,9 +330,9 @@ def getCreationDate(arg1, arg2):
 		return None
 	else:  # ProDOS
 		start = getStartPos(arg1, arg2)
-		return date_prodos_to_unix(g.image_data[start+24:start+28])
+		return date_prodos_to_unix(disk.buffer.read(start + 24, 4))
 
-def getModifiedDate(arg1, arg2):
+def getModifiedDate(disk, arg1, arg2):
 	#outputs prodos modified date/time as Unix time
 	#  (seconds since Jan 1 1970 GMT)
 	#or None if there is none
@@ -346,20 +343,20 @@ def getModifiedDate(arg1, arg2):
 		return None
 	else:  # ProDOS
 		start = getStartPos(arg1, arg2)
-		return date_prodos_to_unix(g.image_data[start+33:start+27])
+		return date_prodos_to_unix(disk.buffer.read(start + 33, 4))
 
-def getVolumeName():
-	return getWorkingDirName(2)
+def getVolumeName(disk):
+	return getWorkingDirName(disk, 2)
 
-def getWorkingDirName(arg1, arg2=None):
+def getWorkingDirName(disk, arg1, arg2=None):
 	# arg1:block, arg2:casemask (optional)
 	start = arg1 * 512
-	firstByte = g.image_data[start+4]
-	entryType = firstByte//16
-	nameLength = firstByte - entryType*16
-	workingDirName = g.image_data[sli(start+5, nameLength)]
+	firstByte = disk.buffer.read1(start + 4)
+	entryType = firstByte // 16
+	nameLength = firstByte - entryType * 16
+	workingDirName = disk.buffer.read(start + 5, nameLength)
 	if entryType == 15:  # volume directory, get casemask from header
-		caseMaskDec = unpack_u16le(g.image_data, start + 26)
+		caseMaskDec = unpack_u16le(disk.buffer.read(start + 26, 2))
 		if caseMaskDec < 32768:
 			caseMask = None
 		else:
@@ -374,7 +371,7 @@ def getWorkingDirName(arg1, arg2=None):
 		workingDirName = bytes(workingDirName)
 	return workingDirName
 
-def getDirEntryCount(arg1):
+def getDirEntryCount(disk, arg1):
 	if g.dos33:
 		entryCount = 0
 		nextSector = arg1
@@ -382,26 +379,26 @@ def getDirEntryCount(arg1):
 			top = ts(nextSector)
 			pos = top+11
 			for e in range(0, 7):
-				if g.image_data[pos] == 0:
+				if disk.buffer.read1(pos) == 0:
 					return entryCount  # no more file entries
 				else:
-					if g.image_data[pos] != 255:
+					if disk.buffer.read1(pos) != 255:
 						entryCount += 1  # increment if not deleted file
 					pos += 35
-			nextSector = list(g.image_data[sli(top+1,2)])
+			nextSector = list(disk.buffer.read(top + 1, 2))
 			if nextSector == [0,0]:  # no more catalog sectors
 				return entryCount
 	else:  # ProDOS
 		start = arg1 * 512
-		return unpack_u16le(g.image_data, start + 37)
+		return unpack_u16le(disk.buffer.read(start + 37, 2))
 
-def getDirNextChunkPointer(arg1):
+def getDirNextChunkPointer(disk, arg1):
 	if g.dos33:
 		start = ts(arg1)
-		return list(g.image_data[sli(start+1,2)])
+		return list(disk.buffer.read(start + 1, 2))
 	else:  # ProDOS
 		start = arg1 * 512
-		return unpack_u16le(g.image_data, start + 2)
+		return unpack_u16le(disk.buffer.read(start + 2, 2))
 
 def toProdosName(name):
 	i = 0
@@ -431,7 +428,7 @@ def sli(start, length=1, ext=None):
 
 # --- main logic functions
 
-def copyFile(arg1, arg2):
+def copyFile(arg1, arg2, disk):
 	#arg1/arg2:
 	#  ProDOS  : directory block  / file index in overall directory
 	#  DOS 3.3 : [track, sector]  / file index in overall VTOC
@@ -451,26 +448,26 @@ def copyFile(arg1, arg2):
 				with open(os.path.join(arg1, (arg2 + "r")), 'rb') as infile:
 					g.ex_data += infile.read()
 	else:  # ProDOS or DOS 3.3
-		storageType = getStorageType(arg1, arg2)
-		keyPointer = getKeyPointer(arg1, arg2)
-		fileLen = getFileLength(arg1, arg2)
+		storageType = getStorageType(disk, arg1, arg2)
+		keyPointer = getKeyPointer(disk, arg1, arg2)
+		fileLen = getFileLength(disk, arg1, arg2)
 		if storageType == 1:  #seedling
-			copyBlock(keyPointer, fileLen)
+			copyBlock(disk, keyPointer, fileLen)
 		elif storageType == 2:  #sapling
-			processIndexBlock(keyPointer)
+			processIndexBlock(disk, keyPointer)
 		elif storageType == 3:  #tree
-			processMasterIndexBlock(keyPointer)
+			processMasterIndexBlock(disk, keyPointer)
 		elif storageType == 5:  #extended (forked)
-			processForkedFile(keyPointer)
+			processForkedFile(disk, keyPointer)
 	if g.prodos_names:
 		# remove address/length data from DOS 3.3 file data if ProDOS target
-		if getFileType(arg1, arg2) == '06':
+		if getFileType(disk, arg1, arg2) == '06':
 			g.out_data = g.out_data[4:]
-		elif (getFileType(arg1, arg2) == 'FA'
-				or getFileType(arg1, arg2) == 'FC'):
+		elif (getFileType(disk, arg1, arg2) == 'FA'
+				or getFileType(disk, arg1, arg2) == 'FC'):
 			g.out_data = g.out_data[2:]
 
-def copyBlock(arg1, arg2):
+def copyBlock(disk, arg1, arg2):
 	#arg1: block number or [t,s] to copy
 	#arg2: bytes to write (should be 256 (DOS 3.3) or 512 (ProDOS),
 	#      unless final block with less)
@@ -478,7 +475,13 @@ def copyBlock(arg1, arg2):
 	if arg1 == 0:
 		outBytes = bytes(arg2)
 	else:
-		outBytes = g.image_data[sli(ts(arg1) if g.dos33 else arg1*512, arg2)]
+		if g.dos33:
+			outBytes = disk.buffer.read(ts(arg1), arg2)
+		else:
+			outBytes = disk.buffer.read(arg1 * 512, arg2)
+	# FIXME: Sort out the read-one vs. read-many problem later
+	if type(outBytes) == int:
+		outBytes = bytes((outBytes))
 	if g.resourceFork > 0:
 		if g.use_appledouble or g.use_extended:
 			offset = (741 if g.use_appledouble else 0)
@@ -495,7 +498,7 @@ def copyBlock(arg1, arg2):
 				] = outBytes
 	g.activeFileBytesCopied += arg2
 
-def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
+def process_dir(disk, arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 	# arg1: ProDOS directory block, or DOS 3.3 [track,sector]
 	# for key block (with directory header):
 	#   arg2: casemask (optional), arg3:None, arg4:None, arg5:None
@@ -516,9 +519,9 @@ def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 	else:
 		e = 0
 		pe = 0
-		entryCount = getDirEntryCount(arg1)
+		entryCount = getDirEntryCount(disk, arg1)
 		if not g.dos33:
-			workingDirName = getWorkingDirName(arg1, arg2).decode("L1")
+			workingDirName = getWorkingDirName(disk, arg1, arg2).decode("L1")
 			g.DIRPATH = g.DIRPATH + "/" + workingDirName
 			if g.PDOSPATH_INDEX:
 				if g.PDOSPATH_INDEX == 1:
@@ -530,25 +533,26 @@ def process_dir(arg1, arg2=None, arg3=None, arg4=None, arg5=None):
 						g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
 			#else: print(g.DIRPATH)
 	while pe < entryCount:
-		if getStorageType(arg1, e) > 0:
+		if getStorageType(disk, arg1, e) > 0:
 			#print(pe, e, entryCount)
-			processEntry(arg1, e)
+			processEntry(disk, arg1, e)
 			pe += 1
 		e += 1
 		if not (e + (0 if g.dos33 else (e>11)) ) % (7 if g.dos33 else 13):
 			process_dir(
-					getDirNextChunkPointer(arg1), entryCount, e,
+					disk,
+					getDirNextChunkPointer(disk, arg1), entryCount, e,
 					workingDirName, pe)
 			break
 
-def processEntry(arg1, arg2):
+def processEntry(disk, arg1, arg2):
 	# arg1=block number, [t,s] if g.dos33=True, or subdir name if g.src_shk=1
 	# arg2=index number of entry in directory, or file name if g.src_shk=1
 
-	#print(getFileName(arg1, arg2), getStorageType(arg1, arg2),
-	#		getFileType(arg1, arg2), getKeyPointer(arg1, arg2),
-	#		getFileLength(arg1, arg2), getAuxType(arg1, arg2),
-	#		getCreationDate(arg1, arg2), getModifiedDate(arg1, arg2))
+	#print(getFileName(disk, arg1, arg2), getStorageType(disk, arg1, arg2),
+	#		getFileType(disk, arg1, arg2), getKeyPointer(disk, arg1, arg2),
+	#		getFileLength(disk, arg1, arg2), getAuxType(disk, arg1, arg2),
+	#		getCreationDate(disk, arg1, arg2), getModifiedDate(disk, arg1, arg2))
 
 	eTargetName = None
 	g.ex_data = None
@@ -559,17 +563,17 @@ def processEntry(arg1, arg2):
 			g.activeFileName = g.activeFileName.upper()
 		origFileName = g.activeFileName
 	else:  # ProDOS or DOS 3.3 image
-		g.activeFileName = getFileName(arg1 ,arg2).decode("L1")
+		g.activeFileName = getFileName(disk, arg1 ,arg2).decode("L1")
 		origFileName = g.activeFileName
 		if g.prodos_names:
 			g.activeFileName = toProdosName(g.activeFileName)
-		g.activeFileSize = getFileLength(arg1, arg2)
+		g.activeFileSize = getFileLength(disk, arg1, arg2)
 
 	if (not g.PDOSPATH_INDEX or
 		g.activeFileName.upper() == g.PDOSPATH_SEGMENT.upper()):
 
 		# if ProDOS directory, not file
-		if not g.src_shk and getStorageType(arg1, arg2) == 13:
+		if not g.src_shk and getStorageType(disk, arg1, arg2) == 13:
 			if not g.PDOSPATH_INDEX:
 				g.target_dir = g.target_dir + "/" + g.activeFileName
 			g.appledouble_dir = g.target_dir + "/.AppleDouble"
@@ -581,7 +585,8 @@ def processEntry(arg1, arg2):
 			if g.PDOSPATH_SEGMENT:
 				g.PDOSPATH_INDEX += 1
 				g.PDOSPATH_SEGMENT = g.PDOSPATH[g.PDOSPATH_INDEX]
-			process_dir(getKeyPointer(arg1, arg2), getCaseMask(arg1, arg2))
+			process_dir(disk, getKeyPointer(disk, arg1, arg2),
+					getCaseMask(disk, arg1, arg2))
 			g.DIRPATH = g.DIRPATH.rsplit("/", 1)[0]
 			if not g.PDOSPATH_INDEX:
 				g.target_dir = g.target_dir.rsplit("/", 1)[0]
@@ -602,7 +607,7 @@ def processEntry(arg1, arg2):
 						dirPrint + filePrint
 						+ ("+" if (g.shk_hasrf
 							or (not g.src_shk
-								and getStorageType(arg1, arg2) == 5))
+								and getStorageType(disk, arg1, arg2) == 5))
 							else "")
 						+ ((" [" + origFileName + "] ")
 							if (g.prodos_names
@@ -617,17 +622,17 @@ def processEntry(arg1, arg2):
 						eTargetName = arg2
 					else:  # ProDOS image
 						eTargetName = (g.target_name + "#"
-								+ getFileType(arg1, arg2).lower()
-								+ getAuxType(arg1, arg2).lower())
+								+ getFileType(disk, arg1, arg2).lower()
+								+ getAuxType(disk, arg1, arg2).lower())
 				# touch(g.target_dir + "/" + g.target_name)
 				if g.use_appledouble:
 					makeADfile()
-				copyFile(arg1, arg2)
+				copyFile(arg1, arg2, disk)
 				saveName = (g.target_dir + "/"
 						+ (eTargetName if eTargetName else g.target_name))
 				save_file(saveName, g.out_data)
-				d_created = getCreationDate(arg1, arg2)
-				d_modified = getModifiedDate(arg1, arg2)
+				d_created = getCreationDate(disk, arg1, arg2)
+				d_modified = getModifiedDate(disk, arg1, arg2)
 				if not d_modified:
 					d_modified = (d_created
 							or int(datetime.datetime.today().timestamp()))
@@ -643,8 +648,8 @@ def processEntry(arg1, arg2):
 					#set type/creator
 					g.ex_data[653] = ord('p')
 					g.ex_data[654:657] = bytes.fromhex(
-							getFileType(arg1, arg2)
-							+ getAuxType(arg1, arg2))
+							getFileType(disk, arg1, arg2)
+							+ getAuxType(disk, arg1, arg2))
 					g.ex_data[657:661] = b'pdos'
 					save_file(ADfile_path, g.ex_data)
 				touch(saveName, d_modified)
@@ -660,30 +665,30 @@ def processEntry(arg1, arg2):
 				g.target_name = None
 	#else print(g.activeFileName + " doesn't match " + g.PDOSPATH_SEGMENT)
 
-def processForkedFile(arg1):
+def processForkedFile(disk, arg1):
 	# finder info except type/creator
-	fInfoA_entryType = g.image_data[9]
-	fInfoB_entryType = g.image_data[27]
-	if fInfoA_entryType == 1:
-		g.image_data[661:669], g.image_data[18:26]
-	elif fInfoA_entryType == 2:
-		g.image_data[669:685], g.image_data[10:26]
-	if fInfoB_entryType == 1:
-		g.image_data[661:669], g.image_data[36:44]
-	elif fInfoB_entryType == 2:
-		g.image_data[669:685], g.image_data[28:44]
+	fInfoA_entryType = disk.buffer.read1(9)
+	fInfoB_entryType = disk.buffer.read1(27)
+	if (fInfoA_entryType == 1):
+		disk.buffer.write(disk.buffer.read(18, 8), 661, 8)
+	elif (fInfoA_entryType == 2):
+		disk.buffer.write(disk.buffer.read(10, 16), 669, 16)
+	if (fInfoB_entryType == 1):
+		disk.buffer.write(disk.buffer.read(36, 8), 661, 8)
+	elif (fInfoB_entryType == 2):
+		disk.buffer.write(disk.buffer.read(28, 16), 669, 16)
 
 	for f in (0, 256):
 		g.resourceFork = f
 		g.activeFileBytesCopied = 0
 		forkStart = arg1 * 512  # start of Forked File key block
 		#print("--" + forkStart)
-		forkStorageType = g.image_data[forkStart+f]
-		forkKeyPointer = unpack_u16le(g.image_data, forkStart + f + 1)
-		forkFileLen = unpack_u24le(g.image_data, forkStart + f + 5)
+		forkStorageType = disk.buffer.read1(forkStart + f)
+		forkKeyPointer = unpack_u16le(disk.buffer.read(forkStart + f + 1, 2))
+		forkFileLen = unpack_u24le(disk.buffer.read(forkStart + f + 5, 3))
 		g.activeFileSize = forkFileLen
 		if g.resourceFork > 0:
-			rsrcForkLen = unpack_u24le(g.image_data, forkStart + f + 5)
+			rsrcForkLen = unpack_u24le(disk.buffer.read(forkStart + f + 5, 3))
 			#print(">>>", rsrcForkLen)
 			if g.use_appledouble or g.use_extended:
 				print("    [resource fork]")
@@ -692,43 +697,43 @@ def processForkedFile(arg1):
 		else:
 			print("    [data fork]")
 		if forkStorageType == 1:  #seedling
-			copyBlock(forkKeyPointer, forkFileLen)
+			copyBlock(disk, forkKeyPointer, forkFileLen)
 		elif forkStorageType == 2:  #sapling
-			processIndexBlock(forkKeyPointer)
+			processIndexBlock(disk, forkKeyPointer)
 		elif forkStorageType == 3:  #tree
-			processMasterIndexBlock(forkKeyPointer)
+			processMasterIndexBlock(disk, forkKeyPointer)
 	#print()
 	g.resourceFork = 0
 
-def processMasterIndexBlock(arg1):
-	processIndexBlock(arg1, True)
+def processMasterIndexBlock(disk, arg1):
+	processIndexBlock(disk, arg1, True)
 
-def processIndexBlock(arg1, arg2=False):
+def processIndexBlock(disk, arg1, arg2=False):
 	#arg1: indexBlock, or [t,s] of track/sector list
 	#arg2: if True, it's a Master Index Block
 	pos = 12 if g.dos33 else 0
 	bytesRemaining = g.activeFileSize
 	while g.activeFileBytesCopied < g.activeFileSize:
 		if g.dos33:
-			targetTS = list(g.image_data[sli(ts(arg1)+pos,2)])
+			targetTS = list(disk.buffer.read(ts(arg1) + pos, 2))
 			#print('{02x} {02x}'.format(targetTS[0], targetTS[1]))
 			bytesRemaining = (g.activeFileSize - g.activeFileBytesCopied)
 			bs = (bytesRemaining if bytesRemaining < 256 else 256)
-			copyBlock(targetTS, bs)
+			copyBlock(disk, targetTS, bs)
 			pos += 2
 			if pos > 255:
 				# continue with next T/S list sector
-				processIndexBlock(list(g.image_data[sli(ts(arg1)+1,2)]))
+				processIndexBlock(disk, list(disk.buffer.read(ts(arg1) + 1, 2)))
 		else:  # ProDOS
 			# Note these are not consecutive bytes
-			targetBlock = (g.image_data[arg1*512+pos] +
-					g.image_data[arg1*512+pos+256]*256)
+			targetBlock = (disk.buffer.read1(arg1 * 512 + pos) +
+					disk.buffer.read1(arg1 * 512 + pos+256) * 256)
 			if arg2:
-				processIndexBlock(targetBlock)
+				processIndexBlock(disk, targetBlock)
 			else:
 				bytesRemaining = (g.activeFileSize - g.activeFileBytesCopied)
 				bs = bytesRemaining if bytesRemaining < 512 else 512
-				copyBlock(targetBlock, bs)
+				copyBlock(disk, targetBlock, bs)
 			pos += 1
 			if pos > 255:
 				break  # go to next entry in Master Index Block (tree)
@@ -936,43 +941,42 @@ def run_cppo():
 				elif (os.path.isfile(os.path.join(dirName, (fname + "r")))):
 					g.shk_hasrf = True
 				if not rfork:
-					processEntry(dirName, fname)
+					processEntry(disk, dirName, fname)
 		shutil.rmtree(unshkdir, True)
 		quit_now(0)
 
 	# end script if SHK
 
-	g.image_data = load_file(disk.pathname)
-
 	# detect if image is 2mg and remove 64-byte header if so
 	if disk.ext in ('.2mg', '.2img'):
-		g.image_data = g.image_data[64:]
+		# FIXME: Seriously STOP doing this...
+		disk.buffer._buf = disk.buffer._buf[64:]
 
 	# handle 140k disk image
-	if len(g.image_data) == 143360:
+	if len(disk.buffer) == 143360:
 		LOG.debug("140k disk")
 		prodos_disk = False
 		fix_order = False
 		# is it ProDOS?
-		if g.image_data[sli(ts(0,0), 4)] == b'\x01\x38\xb0\x03':
+		if disk.buffer.read(ts(0, 0), 4) == b'\x01\x38\xb0\x03':
 			LOG.debug("detected ProDOS by boot block")
-			if g.image_data[sli(ts(0,1)+3, 6)] == b'PRODOS':
+			if disk.buffer.read(ts(0, 1) + 3, 6) == b'PRODOS':
 				LOG.debug("order OK (PO)")
 				prodos_disk = True
-			elif g.image_data[sli(ts(0,14)+3, 6)] == b'PRODOS':
+			elif disk.buffer.read(ts(0, 14) + 3, 6) == b'PRODOS':
 				LOG.debug("order needs fixing (DO)")
 				prodos_disk = True
 				fix_order = True
 		# is it DOS 3.3?
 		else:
 			LOG.debug("it's not ProDOS")
-			if g.image_data[ts(17,0)+3] == 3:
-				vtocT, vtocS = g.image_data[sli(ts(17,0) + 1,2)]
+			if disk.buffer.read1(ts(17, 0) + 3) == 3:
+				vtocT, vtocS = disk.buffer.read(ts(17,0) + 1, 2)
 				if vtocT < 35 and vtocS < 16:
 					LOG.debug("it's DOS 3.3")
 					g.dos33 = True
 					# it's DOS 3.3; check sector order next
-					if g.image_data[ts(17,14)+2] != 13:
+					if disk.buffer.read1(ts(17, 14) + 2) != 13:
 						LOG.debug("order needs fixing (PO)")
 						fix_order = True
 					else:
@@ -985,9 +989,10 @@ def run_cppo():
 				fix_order = True
 		if fix_order:
 			LOG.debug("fixing order")
-			g.image_data = dopo_swap(g.image_data)
+			# FIXME
+			disk.buffer._buf = dopo_swap(disk.buffer._buf)
 			#print("saving fixed order file as outfile.dsk")
-			#save_file("outfile.dsk", g.image_data)
+			#save_file("outfile.dsk", disk.buffer._buf)
 			#print("saved")
 
 		if not prodos_disk and not g.dos33:
@@ -1016,7 +1021,7 @@ def run_cppo():
 				makedirs(g.appledouble_dir)
 			if not g.extract_file:
 				print("Extracting into " + disk_name)
-		process_dir(list(g.image_data[sli(ts(17,0)+1,2)]))
+		process_dir(disk, list(disk.buffer.read(ts(17, 0) + 1, 2)))
 		if g.extract_file:
 			print("ProDOS file not found within image file.")
 		quit_now(0)
@@ -1040,16 +1045,16 @@ def run_cppo():
 		g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 		if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 			mkdir(g.appledouble_dir)
-		process_dir(2)
+		process_dir(disk, 2)
 		print("ProDOS file not found within image file.")
 		quit_now(2)
 	else:
 		if not g.catalog_only:
-			g.target_dir = (g.target_dir + "/" + getVolumeName().decode())
+			g.target_dir = (g.target_dir + "/" + getVolumeName(disk).decode())
 			g.appledouble_dir = (g.target_dir + "/.AppleDouble")
 			if not os.path.isdir(g.target_dir):
 				makedirs(g.target_dir)
 			if g.use_appledouble and not os.path.isdir(g.appledouble_dir):
 				makedirs(g.appledouble_dir)
-		process_dir(2)
+		process_dir(disk, 2)
 		quit_now(0)
