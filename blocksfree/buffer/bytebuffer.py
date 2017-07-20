@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+"""Read/Write BufferType that lives in memory"""
+
 
 from typing import Dict, List, Optional, Union
 from .buffertype import BufferType
@@ -30,7 +32,7 @@ class ByteBuffer(BufferType):
 
 	def __init__(
 			self,
-			bytes_or_int: Union[bytes,int],
+			bytes_or_int: Union[bytes, int],
 			changed: bool = False,
 			locked: bool = False
 			) -> None:
@@ -39,45 +41,53 @@ class ByteBuffer(BufferType):
 		self._locked = locked
 
 	def __len__(self) -> int:
-		"""Return len(self)"""
+		"""Implement len(self)"""
 		return len(self._buf)
 
-	def read(
-			self,
-			start: int = 0,
-			count: int = 1,
-			limit: bool = True
-			) -> bytearray:
-		"""Return bytearray of count bytes from buffer beginning at start
+	@property
+	def changed(self):
+		"""Return True if buffer has been altered
 
-		By default, an IndexError will be raised if you read past the end of
-		the buffer.  Pass limit=False if reads outside the buffer should just
-		return trncated or empty results as with python slicing
+		Returns:
+			Always False for read-only buffers
 		"""
-		if count is None:
-			count = len(self) - start
+		return self._changed
+
+	def read(self, start: int, count: int) -> bytes:
+		"""Return count bytes from buffer beginning at start
+
+		Args:
+			start: Starting position of bytes to return
+			count: Number of bytes to return
+
+		Returns:
+			bytes object of the requested length copied from buffer
+
+		Raises:
+			IndexError if attempt to read outside the buffer is made
+		"""
 		try:
-			assert(start >= 0)
-			assert(count >= 0)
-			if limit == True:
-				assert(start + count <= len(self._buf))
+			assert start >= 0
+			assert count >= 0
+			assert start + count <= len(self._buf)
 		except AssertionError:
 			raise IndexError('buffer read with index out of range')
 		return bytes(self._buf[start:start + count])
 
-	def read1(
-			self,
-			offset: int = 0,
-			limit: bool = True
-			) -> int:
-		"""Return int of single byte from buffer at offset
+	def read1(self, offset: int) -> int:
+		"""Return single byte from buffer as int
 
-		Should raise IndexError if an attempt to read past the end of the
-		buffer is made.
+		Args:
+			offset: The position of the requested byte in the buffer
+
+		Returns:
+			int value of the requested byte
+
+		Raises:
+			IndexError if attempt to read outside the buffer is made
 		"""
 		try:
-			if limit == True:
-				assert 0 <= offset <= len(self._buf)
+			assert 0 <= offset <= len(self._buf)
 		except AssertionError:
 			raise IndexError('buffer read with index out of range')
 		return self._buf[offset]
@@ -86,14 +96,17 @@ class ByteBuffer(BufferType):
 			self,
 			buf: bytes,
 			start: int,
-			count: Optional[int] = None,
-			limit: bool = True
+			count: Optional[int] = None
 			) -> None:
-		"""Writes bytes to buffer beginning at start
+		"""Write given bytes-like object to buffer at start
 
-		If count is not supplied, the entire bytes-like object will be written
-		to the buffer.  An IndexError will be raised if the write would extend
-		past the end of the buffer.  Pass limit=False
+		Args:
+			buf: The bytes-like object to write
+			start: Offset to where in buffer it should be written
+			count: Length to write (default: length of buf)
+
+		Raises:
+			IndexError if attempt to read outside the buffer is made
 		"""
 		if self.locked:
 			raise BufferError('cannot write to locked buffer')
@@ -101,21 +114,27 @@ class ByteBuffer(BufferType):
 		if not count:
 			count = len(buf)
 		try:
-			assert(start >= 0)
-			assert(count >= 0)
-			if limit == True:
-				assert(start + count <= len(self._buf))
+			assert start >= 0
+			assert count >= 0
+			assert start + count <= len(self._buf)
 		except AssertionError:
 			raise IndexError('buffer write with index out of range')
 
 		self._buf[start:start+count] = buf
 		self._changed = True
 
-	def resize(self, size):
-		"""Resize buffer to size
+	def resize(self, size: int) -> None:
+		r"""Resize a given buffer
 
-		If size is larger than len(self), the buffer is appended with zero
-		bytes.  If it is smaller, the buffer will be truncated.
+		Resizes the current buffer in place.  If size < len(self), the buffer
+		will be truncated.  If size > len(self), the buffer will be extended.
+		The newly added bytes will be b'\x00'
+
+		Args:
+			size: New size of buffer
+
+		Raises:
+			BufferError if buffer is locked
 		"""
 		if self.locked:
 			raise BufferError('cannot write to locked buffer')
@@ -127,8 +146,12 @@ class ByteBuffer(BufferType):
 		self._changed = True
 
 	@property
-	def locked(self):
-		"""Returns True for read-only buffers."""
+	def locked(self) -> bool:
+		"""Determine writability of buffer
+
+		Returns:
+			True if buffer has been locked to prevent writing
+		"""
 		return self._locked
 
 	@locked.setter
