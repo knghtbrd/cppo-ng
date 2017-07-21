@@ -16,20 +16,28 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
+"""Disk image functions
+"""
+
 import os
-import struct
 from .buffer.bytebuffer import ByteBuffer
 
 # FIXME Move to_sys_name
 from . import legacy
 
 class Disk:
-	def __init__(self, name=None):
+	"""A basic "intelligent" (hopefully at some point) disk image class
+	"""
+	def __init__(self, name: str = None) -> None:
 		if name is not None:
 			self.pathname = name
 			self.path, self.filename = os.path.split(name)
 			self.diskname, self.ext = os.path.splitext(self.filename)
 			self.ext = os.path.splitext(name)[1].lower()
 			# FIXME: Handle compressed images?
-			with open(legacy.to_sys_name(name), "rb") as f:
-				self.buffer = ByteBuffer(f.read())
+			with open(legacy.to_sys_name(name), "rb") as imagefile:
+				self.buffer = ByteBuffer(imagefile.read())
+
+	def __len__(self) -> int:
+		"""Implement len(self)"""
+		return len(self.buffer)
